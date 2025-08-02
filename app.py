@@ -4,6 +4,8 @@ import time
 import os
 from datetime import datetime
 import threading
+import base64
+import re
 
 app = Flask(__name__)
 
@@ -23,6 +25,31 @@ HEADERS = {
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
+def is_base64(s):
+    """Verifica se a string é um base64 válido"""
+    try:
+        if isinstance(s, str):
+            # Verifica se tem o prefixo data:audio
+            if s.startswith('data:audio'):
+                return True
+            # Tenta decodificar como base64 puro
+            base64.b64decode(s, validate=True)
+            return True
+    except Exception:
+        return False
+    return False
+
+def is_url(s):
+    """Verifica se a string é uma URL válida"""
+    url_pattern = re.compile(
+        r'^https?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    return url_pattern.match(s) is not None
+
 def enviar_mensagem_texto(numero, texto):
     """Envia uma mensagem de texto"""
     try:
@@ -34,12 +61,29 @@ def enviar_mensagem_texto(numero, texto):
         log(f"❌ Erro ao enviar texto para {numero}: {str(e)}")
         return False
 
-def enviar_mensagem_audio(numero, audio_url):
-    """Envia uma mensagem de áudio"""
+def enviar_mensagem_audio(numero, audio_content):
+    """Envia uma mensagem de áudio (URL ou base64)"""
     try:
-        payload = {"phone": numero, "audio": audio_url}
+        payload = {"phone": numero}
+        
+        # Determinar se é URL ou base64
+        if is_base64(audio_content):
+            log(f"🎧 Enviando áudio base64 para {numero}")
+            payload["audio"] = audio_content
+        elif is_url(audio_content):
+            log(f"🎧 Enviando áudio URL para {numero}")
+            payload["audio"] = audio_content
+        else:
+            log(f"❌ Formato de áudio inválido para {numero}")
+            return False
+        
         response = requests.post(URL_AUDIO, json=payload, headers=HEADERS)
         log(f"🎧 Áudio para {numero}: {response.status_code}")
+        
+        # Log da resposta para debug
+        if response.status_code != 200:
+            log(f"❌ Resposta da API: {response.text}")
+        
         return response.status_code == 200
     except Exception as e:
         log(f"❌ Erro ao enviar áudio para {numero}: {str(e)}")
@@ -135,6 +179,12 @@ def enviar_sequencia():
                 'status': 'error', 
                 'mensagem': 'Configurações da API não encontradas'
             })
+        
+        # Log da sequência para debug
+        for msg in sequencia:
+            if msg['tipo'] == 'audio':
+                content_type = 'base64' if is_base64(msg['conteudo']) else 'url'
+                log(f"📋 Áudio {msg['ordem']}: {content_type}")
         
         # Iniciar disparo em thread separada para não bloquear a resposta
         thread = threading.Thread(
