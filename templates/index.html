@@ -2,56 +2,477 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Disparador WhatsApp</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disparador WhatsApp Pro</title>
   <style>
-    body { font-family: Arial; max-width: 700px; margin: auto; padding: 20px; }
-    textarea, input, select { width: 100%; margin: 10px 0; padding: 10px; }
-    button { padding: 10px 20px; cursor: pointer; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+    
+    h1 {
+      text-align: center;
+      color: #2d3748;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #718096;
+      margin-bottom: 40px;
+      font-size: 1.1rem;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+      padding: 25px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e2e8f0;
+    }
+    
+    .section-title {
+      font-size: 1.3rem;
+      color: #2d3748;
+      margin-bottom: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .icon {
+      width: 24px;
+      height: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #4a5568;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+    
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      background: #f7fafc;
+    }
+    
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .sequence-container {
+      border: 2px dashed #cbd5e0;
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 200px;
+      background: #f7fafc;
+    }
+    
+    .sequence-item {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 15px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    
+    .sequence-item:hover {
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    .sequence-header {
+      display: flex;
+      justify-content: between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .sequence-number {
+      background: #667eea;
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    
+    .sequence-type {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    
+    .type-texto {
+      background: #e6fffa;
+      color: #234e52;
+    }
+    
+    .type-audio {
+      background: #fef5e7;
+      color: #744210;
+    }
+    
+    .remove-btn {
+      background: #fed7d7;
+      color: #c53030;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: all 0.3s ease;
+    }
+    
+    .remove-btn:hover {
+      background: #feb2b2;
+      transform: scale(1.1);
+    }
+    
+    .sequence-content {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 15px;
+      align-items: end;
+    }
+    
+    .add-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+    
+    .btn-secondary:hover {
+      background: #cbd5e0;
+      transform: translateY(-1px);
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      font-size: 1.1rem;
+      padding: 15px 30px;
+      margin-top: 30px;
+      width: 100%;
+    }
+    
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(72, 187, 120, 0.3);
+    }
+    
+    .response {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      display: none;
+    }
+    
+    .response.success {
+      background: #f0fff4;
+      border: 1px solid #9ae6b4;
+      color: #22543d;
+    }
+    
+    .response.error {
+      background: #fed7d7;
+      border: 1px solid #feb2b2;
+      color: #c53030;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .spinner {
+      border: 3px solid #e2e8f0;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #a0aec0;
+      font-style: italic;
+      padding: 40px 20px;
+    }
+    
+    .interval-input {
+      width: 100px;
+    }
   </style>
 </head>
 <body>
-  <h2>Disparador de WhatsApp</h2>
-
-  <label>Tipo de Disparo:</label>
-  <select id="tipo">
-    <option value="texto">Somente Texto</option>
-    <option value="audio">Somente Áudio</option>
-    <option value="ambos">Texto e Áudio</option>
-  </select>
-
-  <label>Mensagens de Texto (uma por linha):</label>
-  <textarea id="textos" rows="5" placeholder="Insira mensagens de texto..."></textarea>
-
-  <label>URLs dos Áudios (uma por linha):</label>
-  <textarea id="audios" rows="5" placeholder="Insira links dos áudios..."></textarea>
-
-  <label>Intervalo entre mensagens (em segundos):</label>
-  <input type="number" id="intervalo" value="60" />
-
-  <label>Números de telefone (um por linha):</label>
-  <textarea id="numeros" rows="6" placeholder="Ex: 5511999999999"></textarea>
-
-  <button onclick="enviar()">Enviar Mensagens</button>
-
-  <pre id="resposta"></pre>
+  <div class="container">
+    <h1>📱 Disparador WhatsApp Pro</h1>
+    <p class="subtitle">Sistema avançado de envio sequencial de mensagens</p>
+    
+    <div class="section">
+      <h3 class="section-title">
+        <span>📋</span>
+        Sequência de Mensagens
+      </h3>
+      
+      <div class="sequence-container" id="sequenceContainer">
+        <div class="empty-state" id="emptyState">
+          Nenhuma mensagem adicionada. Clique nos botões abaixo para começar.
+        </div>
+      </div>
+      
+      <div class="add-buttons">
+        <button class="btn btn-secondary" onclick="adicionarMensagem('texto')">
+          💬 Adicionar Texto
+        </button>
+        <button class="btn btn-secondary" onclick="adicionarMensagem('audio')">
+          🎧 Adicionar Áudio
+        </button>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h3 class="section-title">
+        <span>📞</span>
+        Números de Destino
+      </h3>
+      <div class="form-group">
+        <label>Números de telefone (um por linha):</label>
+        <textarea id="numeros" rows="6" placeholder="Ex: 5511999999999&#10;5511888888888&#10;5511777777777"></textarea>
+      </div>
+    </div>
+    
+    <button class="btn btn-success" onclick="enviarSequencia()">
+      🚀 Iniciar Disparo Sequencial
+    </button>
+    
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Enviando mensagens...</p>
+    </div>
+    
+    <div class="response" id="resposta"></div>
+  </div>
 
   <script>
-    function enviar() {
-      const tipo = document.getElementById('tipo').value;
-      const textos = document.getElementById('textos').value.split('\n').filter(t => t.trim() !== '');
-      const audios = document.getElementById('audios').value.split('\n').filter(a => a.trim() !== '');
-      const intervalo = document.getElementById('intervalo').value;
-      const numeros = document.getElementById('numeros').value.split('\n').filter(n => n.trim() !== '');
+    let sequenceCounter = 0;
+    let messageSequence = [];
 
-      fetch('/enviar', {
+    function adicionarMensagem(tipo) {
+      sequenceCounter++;
+      const container = document.getElementById('sequenceContainer');
+      const emptyState = document.getElementById('emptyState');
+      
+      if (emptyState) {
+        emptyState.style.display = 'none';
+      }
+      
+      const messageId = `msg_${sequenceCounter}`;
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'sequence-item';
+      messageDiv.id = messageId;
+      
+      messageDiv.innerHTML = `
+        <div class="sequence-header">
+          <div class="sequence-number">${sequenceCounter}</div>
+          <div class="sequence-type type-${tipo}">${tipo}</div>
+          <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
+        </div>
+        <div class="sequence-content">
+          <div>
+            ${tipo === 'texto' ? 
+              '<textarea placeholder="Digite sua mensagem..." rows="3"></textarea>' : 
+              '<input type="url" placeholder="URL do áudio (ex: https://exemplo.com/audio.mp3)">'
+            }
+          </div>
+          <div>
+            <label>Intervalo (seg):</label>
+            <input type="number" class="interval-input" value="60" min="1">
+          </div>
+        </div>
+      `;
+      
+      container.appendChild(messageDiv);
+      
+      // Adicionar à sequência
+      messageSequence.push({
+        id: messageId,
+        tipo: tipo,
+        ordem: sequenceCounter
+      });
+    }
+    
+    function removerMensagem(messageId) {
+      const element = document.getElementById(messageId);
+      element.remove();
+      
+      // Remover da sequência
+      messageSequence = messageSequence.filter(msg => msg.id !== messageId);
+      
+      // Verificar se está vazio
+      const container = document.getElementById('sequenceContainer');
+      if (container.children.length === 0) {
+        container.innerHTML = '<div class="empty-state" id="emptyState">Nenhuma mensagem adicionada. Clique nos botões abaixo para começar.</div>';
+      }
+    }
+    
+    function coletarSequencia() {
+      const sequencia = [];
+      const items = document.querySelectorAll('.sequence-item');
+      
+      items.forEach((item, index) => {
+        const tipo = item.querySelector('.sequence-type').textContent.trim();
+        const conteudo = tipo === 'texto' ? 
+          item.querySelector('textarea').value : 
+          item.querySelector('input[type="url"]').value;
+        const intervalo = parseInt(item.querySelector('.interval-input').value);
+        
+        if (conteudo.trim()) {
+          sequencia.push({
+            ordem: index + 1,
+            tipo: tipo,
+            conteudo: conteudo.trim(),
+            intervalo: intervalo
+          });
+        }
+      });
+      
+      return sequencia;
+    }
+    
+    function enviarSequencia() {
+      const sequencia = coletarSequencia();
+      const numeros = document.getElementById('numeros').value
+        .split('\n')
+        .filter(n => n.trim() !== '');
+      
+      if (sequencia.length === 0) {
+        mostrarResposta('❌ Adicione pelo menos uma mensagem à sequência.', 'error');
+        return;
+      }
+      
+      if (numeros.length === 0) {
+        mostrarResposta('❌ Adicione pelo menos um número de telefone.', 'error');
+        return;
+      }
+      
+      // Mostrar loading
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('resposta').style.display = 'none';
+      
+      fetch('/enviar-sequencia', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ tipo, textos, audios, intervalo, numeros })
+        body: JSON.stringify({ 
+          sequencia: sequencia,
+          numeros: numeros 
+        })
       })
       .then(r => r.json())
       .then(data => {
-        document.getElementById('resposta').textContent = "✅ Disparo iniciado com sucesso.";
+        document.getElementById('loading').style.display = 'none';
+        if (data.status === 'ok') {
+          mostrarResposta(`✅ Disparo sequencial iniciado com sucesso!\n\n📊 Estatísticas:\n• ${numeros.length} números\n• ${sequencia.length} mensagens por número\n• Total de ${numeros.length * sequencia.length} envios`, 'success');
+        } else {
+          mostrarResposta(`❌ Erro: ${data.mensagem}`, 'error');
+        }
+      })
+      .catch(error => {
+        document.getElementById('loading').style.display = 'none';
+        mostrarResposta(`❌ Erro de conexão: ${error.message}`, 'error');
       });
+    }
+    
+    function mostrarResposta(mensagem, tipo) {
+      const resposta = document.getElementById('resposta');
+      resposta.textContent = mensagem;
+      resposta.className = `response ${tipo}`;
+      resposta.style.display = 'block';
     }
   </script>
 </body>
