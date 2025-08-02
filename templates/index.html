@@ -121,7 +121,7 @@
     
     .sequence-header {
       display: flex;
-      justify-content: between;
+      justify-content: space-between;
       align-items: center;
       margin-bottom: 15px;
     }
@@ -179,6 +179,78 @@
       grid-template-columns: 1fr auto;
       gap: 15px;
       align-items: end;
+    }
+    
+    .audio-input-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .audio-method-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .method-btn {
+      padding: 8px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f7fafc;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    
+    .method-btn.active {
+      border-color: #667eea;
+      background: #667eea;
+      color: white;
+    }
+    
+    .file-input-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+    
+    .file-input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+    
+    .file-input-display {
+      padding: 12px 16px;
+      border: 2px dashed #cbd5e0;
+      border-radius: 10px;
+      background: #f7fafc;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .file-input-display:hover {
+      border-color: #667eea;
+      background: #edf2f7;
+    }
+    
+    .file-input-display.has-file {
+      border-color: #48bb78;
+      background: #f0fff4;
+      color: #22543d;
+    }
+    
+    .file-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 5px;
+      font-size: 0.8rem;
+      color: #718096;
     }
     
     .add-buttons {
@@ -287,6 +359,10 @@
     .interval-input {
       width: 100px;
     }
+    
+    .hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -357,25 +433,61 @@
       messageDiv.className = 'sequence-item';
       messageDiv.id = messageId;
       
-      messageDiv.innerHTML = `
-        <div class="sequence-header">
-          <div class="sequence-number">${sequenceCounter}</div>
-          <div class="sequence-type type-${tipo}">${tipo}</div>
-          <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
-        </div>
-        <div class="sequence-content">
-          <div>
-            ${tipo === 'texto' ? 
-              '<textarea placeholder="Digite sua mensagem..." rows="3"></textarea>' : 
-              '<input type="url" placeholder="URL do áudio (ex: https://exemplo.com/audio.mp3)">'
-            }
+      if (tipo === 'texto') {
+        messageDiv.innerHTML = `
+          <div class="sequence-header">
+            <div class="sequence-number">${sequenceCounter}</div>
+            <div class="sequence-type type-${tipo}">${tipo}</div>
+            <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
           </div>
-          <div>
-            <label>Intervalo (seg):</label>
-            <input type="number" class="interval-input" value="60" min="1">
+          <div class="sequence-content">
+            <div>
+              <textarea placeholder="Digite sua mensagem..." rows="3"></textarea>
+            </div>
+            <div>
+              <label>Intervalo (seg):</label>
+              <input type="number" class="interval-input" value="60" min="1">
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      } else if (tipo === 'audio') {
+        messageDiv.innerHTML = `
+          <div class="sequence-header">
+            <div class="sequence-number">${sequenceCounter}</div>
+            <div class="sequence-type type-${tipo}">${tipo}</div>
+            <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
+          </div>
+          <div class="sequence-content">
+            <div class="audio-input-container">
+              <div class="audio-method-selector">
+                <button type="button" class="method-btn active" onclick="alternarMetodoAudio('${messageId}', 'url')">🔗 URL</button>
+                <button type="button" class="method-btn" onclick="alternarMetodoAudio('${messageId}', 'file')">📁 Arquivo</button>
+              </div>
+              
+              <div class="url-input" id="url-input-${messageId}">
+                <input type="url" placeholder="URL do áudio (ex: https://exemplo.com/audio.mp3)">
+              </div>
+              
+              <div class="file-input-container hidden" id="file-input-${messageId}">
+                <div class="file-input-wrapper">
+                  <input type="file" class="file-input" accept=".mp3,.ogg,.wav" onchange="handleFileSelect(this, '${messageId}')">
+                  <div class="file-input-display">
+                    <div>📁 Clique para selecionar arquivo de áudio</div>
+                    <div style="font-size: 0.8rem; color: #718096; margin-top: 5px;">
+                      Formatos aceitos: MP3, OGG, WAV (máx. 16MB)
+                    </div>
+                  </div>
+                </div>
+                <div class="file-info hidden" id="file-info-${messageId}"></div>
+              </div>
+            </div>
+            <div>
+              <label>Intervalo (seg):</label>
+              <input type="number" class="interval-input" value="60" min="1">
+            </div>
+          </div>
+        `;
+      }
       
       container.appendChild(messageDiv);
       
@@ -386,7 +498,85 @@
         ordem: sequenceCounter
       });
     }
-    
+
+    function alternarMetodoAudio(messageId, metodo) {
+      const urlInput = document.getElementById(`url-input-${messageId}`);
+      const fileInput = document.getElementById(`file-input-${messageId}`);
+      const buttons = document.querySelectorAll(`#${messageId} .method-btn`);
+      
+      // Atualizar botões ativos
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      if (metodo === 'url') {
+        urlInput.classList.remove('hidden');
+        fileInput.classList.add('hidden');
+      } else {
+        urlInput.classList.add('hidden');
+        fileInput.classList.remove('hidden');
+      }
+    }
+
+    function handleFileSelect(input, messageId) {
+      const file = input.files[0];
+      const fileInfo = document.getElementById(`file-info-${messageId}`);
+      const display = input.parentElement.querySelector('.file-input-display');
+      
+      if (file) {
+        // Validar tipo de arquivo
+        const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav'];
+        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|ogg|wav)$/i)) {
+          mostrarResposta('❌ Formato de arquivo não suportado. Use MP3, OGG ou WAV.', 'error');
+          input.value = '';
+          return;
+        }
+        
+        // Validar tamanho (16MB)
+        if (file.size > 16 * 1024 * 1024) {
+          mostrarResposta('❌ Arquivo muito grande. Máximo 16MB.', 'error');
+          input.value = '';
+          return;
+        }
+        
+        // Atualizar display
+        display.classList.add('has-file');
+        display.innerHTML = `
+          <div>✅ ${file.name}</div>
+          <div style="font-size: 0.8rem; color: #22543d; margin-top: 5px;">
+            Arquivo selecionado com sucesso
+          </div>
+        `;
+        
+        // Mostrar informações do arquivo
+        fileInfo.innerHTML = `
+          <span>📊 ${formatFileSize(file.size)}</span>
+          <span>🎵 ${file.type || 'audio'}</span>
+        `;
+        fileInfo.classList.remove('hidden');
+        
+        // Converter para base64
+        convertToBase64(file, messageId);
+      }
+    }
+
+    function convertToBase64(file, messageId) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        // Armazenar base64 no elemento para uso posterior
+        const container = document.getElementById(messageId);
+        container.setAttribute('data-audio-base64', e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
     function removerMensagem(messageId) {
       const element = document.getElementById(messageId);
       element.remove();
@@ -400,16 +590,29 @@
         container.innerHTML = '<div class="empty-state" id="emptyState">Nenhuma mensagem adicionada. Clique nos botões abaixo para começar.</div>';
       }
     }
-    
+
     function coletarSequencia() {
       const sequencia = [];
       const items = document.querySelectorAll('.sequence-item');
       
       items.forEach((item, index) => {
         const tipo = item.querySelector('.sequence-type').textContent.trim();
-        const conteudo = tipo === 'texto' ? 
-          item.querySelector('textarea').value : 
-          item.querySelector('input[type="url"]').value;
+        let conteudo = '';
+        
+        if (tipo === 'texto') {
+          conteudo = item.querySelector('textarea').value;
+        } else if (tipo === 'audio') {
+          const urlInput = item.querySelector('.url-input input');
+          const fileBase64 = item.getAttribute('data-audio-base64');
+          const isFileMethod = !item.querySelector('.file-input-container').classList.contains('hidden');
+          
+          if (isFileMethod && fileBase64) {
+            conteudo = fileBase64; // Base64 do arquivo
+          } else {
+            conteudo = urlInput.value; // URL
+          }
+        }
+        
         const intervalo = parseInt(item.querySelector('.interval-input').value);
         
         if (conteudo.trim()) {
@@ -424,7 +627,7 @@
       
       return sequencia;
     }
-    
+
     function enviarSequencia() {
       const sequencia = coletarSequencia();
       const numeros = document.getElementById('numeros').value
@@ -448,9 +651,9 @@
       fetch('/enviar-sequencia', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           sequencia: sequencia,
-          numeros: numeros 
+          numeros: numeros
         })
       })
       .then(r => r.json())
@@ -467,7 +670,7 @@
         mostrarResposta(`❌ Erro de conexão: ${error.message}`, 'error');
       });
     }
-    
+
     function mostrarResposta(mensagem, tipo) {
       const resposta = document.getElementById('resposta');
       resposta.textContent = mensagem;
