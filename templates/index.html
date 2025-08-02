@@ -1,682 +1,655 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Disparador WhatsApp Pro</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-    }
-    
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 40px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    }
-    
-    h1 {
-      text-align: center;
-      color: #2d3748;
-      font-size: 2.5rem;
-      margin-bottom: 10px;
-      font-weight: 700;
-    }
-    
-    .subtitle {
-      text-align: center;
-      color: #718096;
-      margin-bottom: 40px;
-      font-size: 1.1rem;
-    }
-    
-    .section {
-      margin-bottom: 30px;
-      padding: 25px;
-      background: white;
-      border-radius: 15px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-      border: 1px solid #e2e8f0;
-    }
-    
-    .section-title {
-      font-size: 1.3rem;
-      color: #2d3748;
-      margin-bottom: 20px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .icon {
-      width: 24px;
-      height: 24px;
-    }
-    
-    .form-group {
-      margin-bottom: 20px;
-    }
-    
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: #4a5568;
-      font-weight: 500;
-      font-size: 0.95rem;
-    }
-    
-    input, textarea, select {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 1rem;
-      transition: all 0.3s ease;
-      background: #f7fafc;
-    }
-    
-    input:focus, textarea:focus, select:focus {
-      outline: none;
-      border-color: #667eea;
-      background: white;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-    
-    .sequence-container {
-      border: 2px dashed #cbd5e0;
-      border-radius: 10px;
-      padding: 20px;
-      min-height: 200px;
-      background: #f7fafc;
-    }
-    
-    .sequence-item {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 15px;
-      position: relative;
-      transition: all 0.3s ease;
-    }
-    
-    .sequence-item:hover {
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-      transform: translateY(-2px);
-    }
-    
-    .sequence-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    
-    .sequence-number {
-      background: #667eea;
-      color: white;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 0.9rem;
-    }
-    
-    .sequence-type {
-      padding: 5px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      text-transform: uppercase;
-    }
-    
-    .type-texto {
-      background: #e6fffa;
-      color: #234e52;
-    }
-    
-    .type-audio {
-      background: #fef5e7;
-      color: #744210;
-    }
-    
-    .remove-btn {
-      background: #fed7d7;
-      color: #c53030;
-      border: none;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 1.2rem;
-      transition: all 0.3s ease;
-    }
-    
-    .remove-btn:hover {
-      background: #feb2b2;
-      transform: scale(1.1);
-    }
-    
-    .sequence-content {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 15px;
-      align-items: end;
-    }
-    
-    .audio-input-container {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    
-    .audio-method-selector {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    
-    .method-btn {
-      padding: 8px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      background: #f7fafc;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-    }
-    
-    .method-btn.active {
-      border-color: #667eea;
-      background: #667eea;
-      color: white;
-    }
-    
-    .file-input-wrapper {
-      position: relative;
-      display: inline-block;
-      width: 100%;
-    }
-    
-    .file-input {
-      position: absolute;
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
-    }
-    
-    .file-input-display {
-      padding: 12px 16px;
-      border: 2px dashed #cbd5e0;
-      border-radius: 10px;
-      background: #f7fafc;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    
-    .file-input-display:hover {
-      border-color: #667eea;
-      background: #edf2f7;
-    }
-    
-    .file-input-display.has-file {
-      border-color: #48bb78;
-      background: #f0fff4;
-      color: #22543d;
-    }
-    
-    .file-info {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 5px;
-      font-size: 0.8rem;
-      color: #718096;
-    }
-    
-    .add-buttons {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-top: 20px;
-    }
-    
-    .btn {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
-    }
-    
-    .btn-secondary {
-      background: #e2e8f0;
-      color: #4a5568;
-    }
-    
-    .btn-secondary:hover {
-      background: #cbd5e0;
-      transform: translateY(-1px);
-    }
-    
-    .btn-success {
-      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-      color: white;
-      font-size: 1.1rem;
-      padding: 15px 30px;
-      margin-top: 30px;
-      width: 100%;
-    }
-    
-    .btn-success:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(72, 187, 120, 0.3);
-    }
-    
-    .response {
-      margin-top: 20px;
-      padding: 20px;
-      border-radius: 10px;
-      font-family: 'Courier New', monospace;
-      white-space: pre-wrap;
-      display: none;
-    }
-    
-    .response.success {
-      background: #f0fff4;
-      border: 1px solid #9ae6b4;
-      color: #22543d;
-    }
-    
-    .response.error {
-      background: #fed7d7;
-      border: 1px solid #feb2b2;
-      color: #c53030;
-    }
-    
-    .loading {
-      display: none;
-      text-align: center;
-      padding: 20px;
-    }
-    
-    .spinner {
-      border: 3px solid #e2e8f0;
-      border-top: 3px solid #667eea;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 10px;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .empty-state {
-      text-align: center;
-      color: #a0aec0;
-      font-style: italic;
-      padding: 40px 20px;
-    }
-    
-    .interval-input {
-      width: 100px;
-    }
-    
-    .hidden {
-      display: none !important;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>📱 Disparador WhatsApp Pro</h1>
-    <p class="subtitle">Sistema avançado de envio sequencial de mensagens</p>
-    
-    <div class="section">
-      <h3 class="section-title">
-        <span>📋</span>
-        Sequência de Mensagens
-      </h3>
-      
-      <div class="sequence-container" id="sequenceContainer">
-        <div class="empty-state" id="emptyState">
-          Nenhuma mensagem adicionada. Clique nos botões abaixo para começar.
-        </div>
-      </div>
-      
-      <div class="add-buttons">
-        <button class="btn btn-secondary" onclick="adicionarMensagem('texto')">
-          💬 Adicionar Texto
-        </button>
-        <button class="btn btn-secondary" onclick="adicionarMensagem('audio')">
-          🎧 Adicionar Áudio
-        </button>
-      </div>
-    </div>
-    
-    <div class="section">
-      <h3 class="section-title">
-        <span>📞</span>
-        Números de Destino
-      </h3>
-      <div class="form-group">
-        <label>Números de telefone (um por linha):</label>
-        <textarea id="numeros" rows="6" placeholder="Ex: 5511999999999&#10;5511888888888&#10;5511777777777"></textarea>
-      </div>
-    </div>
-    
-    <button class="btn btn-success" onclick="enviarSequencia()">
-      🚀 Iniciar Disparo Sequencial
-    </button>
-    
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <p>Enviando mensagens...</p>
-    </div>
-    
-    <div class="response" id="resposta"></div>
-  </div>
+from flask import Flask, request, jsonify, render_template
+import requests
+import time
+import os
+from datetime import datetime, timedelta
+import threading
+import base64
+import re
+import json
+import sqlite3
+from contextlib import contextmanager
 
-  <script>
-    let sequenceCounter = 0;
-    let messageSequence = [];
+app = Flask(__name__)
 
-    function adicionarMensagem(tipo) {
-      sequenceCounter++;
-      const container = document.getElementById('sequenceContainer');
-      const emptyState = document.getElementById('emptyState');
-      
-      if (emptyState) {
-        emptyState.style.display = 'none';
-      }
-      
-      const messageId = `msg_${sequenceCounter}`;
-      const messageDiv = document.createElement('div');
-      messageDiv.className = 'sequence-item';
-      messageDiv.id = messageId;
-      
-      if (tipo === 'texto') {
-        messageDiv.innerHTML = `
-          <div class="sequence-header">
-            <div class="sequence-number">${sequenceCounter}</div>
-            <div class="sequence-type type-${tipo}">${tipo}</div>
-            <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
-          </div>
-          <div class="sequence-content">
-            <div>
-              <textarea placeholder="Digite sua mensagem..." rows="3"></textarea>
-            </div>
-            <div>
-              <label>Intervalo (seg):</label>
-              <input type="number" class="interval-input" value="60" min="1">
-            </div>
-          </div>
-        `;
-      } else if (tipo === 'audio') {
-        messageDiv.innerHTML = `
-          <div class="sequence-header">
-            <div class="sequence-number">${sequenceCounter}</div>
-            <div class="sequence-type type-${tipo}">${tipo}</div>
-            <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
-          </div>
-          <div class="sequence-content">
-            <div class="audio-input-container">
-              <div class="audio-method-selector">
-                <button type="button" class="method-btn active" onclick="alternarMetodoAudio('${messageId}', 'url')">🔗 URL</button>
-                <button type="button" class="method-btn" onclick="alternarMetodoAudio('${messageId}', 'file')">📁 Arquivo</button>
-              </div>
-              
-              <div class="url-input" id="url-input-${messageId}">
-                <input type="url" placeholder="URL do áudio (ex: https://exemplo.com/audio.mp3)">
-              </div>
-              
-              <div class="file-input-container hidden" id="file-input-${messageId}">
-                <div class="file-input-wrapper">
-                  <input type="file" class="file-input" accept=".mp3,.ogg,.wav" onchange="handleFileSelect(this, '${messageId}')">
-                  <div class="file-input-display">
-                    <div>📁 Clique para selecionar arquivo de áudio</div>
-                    <div style="font-size: 0.8rem; color: #718096; margin-top: 5px;">
-                      Formatos aceitos: MP3, OGG, WAV (máx. 16MB)
-                    </div>
-                  </div>
-                </div>
-                <div class="file-info hidden" id="file-info-${messageId}"></div>
-              </div>
-            </div>
-            <div>
-              <label>Intervalo (seg):</label>
-              <input type="number" class="interval-input" value="60" min="1">
-            </div>
-          </div>
-        `;
-      }
-      
-      container.appendChild(messageDiv);
-      
-      // Adicionar à sequência
-      messageSequence.push({
-        id: messageId,
-        tipo: tipo,
-        ordem: sequenceCounter
-      });
-    }
+# CONFIG: variáveis de ambiente
+INSTANCE = os.environ.get("INSTANCE")
+TOKEN = os.environ.get("TOKEN")
+SECURITY_TOKEN = os.environ.get("SECURITY_TOKEN")
 
-    function alternarMetodoAudio(messageId, metodo) {
-      const urlInput = document.getElementById(`url-input-${messageId}`);
-      const fileInput = document.getElementById(`file-input-${messageId}`);
-      const buttons = document.querySelectorAll(`#${messageId} .method-btn`);
-      
-      // Atualizar botões ativos
-      buttons.forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      if (metodo === 'url') {
-        urlInput.classList.remove('hidden');
-        fileInput.classList.add('hidden');
-      } else {
-        urlInput.classList.add('hidden');
-        fileInput.classList.remove('hidden');
-      }
-    }
+URL_TEXT = f"https://api.z-api.io/instances/{INSTANCE}/token/{TOKEN}/send-text"
+URL_AUDIO = f"https://api.z-api.io/instances/{INSTANCE}/token/{TOKEN}/send-audio"
 
-    function handleFileSelect(input, messageId) {
-      const file = input.files[0];
-      const fileInfo = document.getElementById(`file-info-${messageId}`);
-      const display = input.parentElement.querySelector('.file-input-display');
-      
-      if (file) {
-        // Validar tipo de arquivo
-        const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav'];
-        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|ogg|wav)$/i)) {
-          mostrarResposta('❌ Formato de arquivo não suportado. Use MP3, OGG ou WAV.', 'error');
-          input.value = '';
-          return;
-        }
+HEADERS = {
+    'client-token': SECURITY_TOKEN,
+    'Content-Type': 'application/json'
+}
+
+# Inicializar banco de dados
+def init_db():
+    """Inicializa o banco de dados SQLite"""
+    with sqlite3.connect('whatsapp_dispatcher.db') as conn:
+        cursor = conn.cursor()
         
-        // Validar tamanho (16MB)
-        if (file.size > 16 * 1024 * 1024) {
-          mostrarResposta('❌ Arquivo muito grande. Máximo 16MB.', 'error');
-          input.value = '';
-          return;
-        }
+        # Tabela de campanhas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS campanhas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT,
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                total_numeros INTEGER,
+                total_mensagens INTEGER,
+                status TEXT DEFAULT 'ativa',
+                data_finalizacao TIMESTAMP
+            )
+        ''')
         
-        // Atualizar display
-        display.classList.add('has-file');
-        display.innerHTML = `
-          <div>✅ ${file.name}</div>
-          <div style="font-size: 0.8rem; color: #22543d; margin-top: 5px;">
-            Arquivo selecionado com sucesso
-          </div>
-        `;
+        # Tabela de envios
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS envios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campanha_id INTEGER,
+                numero TEXT,
+                tipo TEXT,
+                conteudo TEXT,
+                status TEXT DEFAULT 'pendente',
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                tempo_resposta REAL,
+                codigo_resposta INTEGER,
+                erro TEXT,
+                FOREIGN KEY (campanha_id) REFERENCES campanhas (id)
+            )
+        ''')
         
-        // Mostrar informações do arquivo
-        fileInfo.innerHTML = `
-          <span>📊 ${formatFileSize(file.size)}</span>
-          <span>🎵 ${file.type || 'audio'}</span>
-        `;
-        fileInfo.classList.remove('hidden');
+        # Tabela de métricas diárias
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS metricas_diarias (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data DATE UNIQUE,
+                total_envios INTEGER DEFAULT 0,
+                envios_sucesso INTEGER DEFAULT 0,
+                envios_erro INTEGER DEFAULT 0,
+                tempo_medio REAL DEFAULT 0,
+                numeros_unicos INTEGER DEFAULT 0
+            )
+        ''')
         
-        // Converter para base64
-        convertToBase64(file, messageId);
-      }
-    }
+        conn.commit()
 
-    function convertToBase64(file, messageId) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        // Armazenar base64 no elemento para uso posterior
-        const container = document.getElementById(messageId);
-        container.setAttribute('data-audio-base64', e.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
+@contextmanager
+def get_db():
+    """Context manager para conexão com banco de dados"""
+    conn = sqlite3.connect('whatsapp_dispatcher.db')
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
 
-    function formatFileSize(bytes) {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
+def log(msg):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-    function removerMensagem(messageId) {
-      const element = document.getElementById(messageId);
-      element.remove();
-      
-      // Remover da sequência
-      messageSequence = messageSequence.filter(msg => msg.id !== messageId);
-      
-      // Verificar se está vazio
-      const container = document.getElementById('sequenceContainer');
-      if (container.children.length === 0) {
-        container.innerHTML = '<div class="empty-state" id="emptyState">Nenhuma mensagem adicionada. Clique nos botões abaixo para começar.</div>';
-      }
-    }
+def salvar_campanha(sequencia, numeros):
+    """Salva uma nova campanha no banco de dados"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO campanhas (nome, total_numeros, total_mensagens)
+            VALUES (?, ?, ?)
+        ''', (
+            f"Campanha_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            len(numeros),
+            len(sequencia)
+        ))
+        return cursor.lastrowid
 
-    function coletarSequencia() {
-      const sequencia = [];
-      const items = document.querySelectorAll('.sequence-item');
-      
-      items.forEach((item, index) => {
-        const tipo = item.querySelector('.sequence-type').textContent.trim();
-        let conteudo = '';
+def salvar_envio(campanha_id, numero, tipo, conteudo, status, tempo_resposta=None, codigo_resposta=None, erro=None):
+    """Salva um envio no banco de dados"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO envios (campanha_id, numero, tipo, conteudo, status, tempo_resposta, codigo_resposta, erro)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (campanha_id, numero, tipo, conteudo[:500], status, tempo_resposta, codigo_resposta, erro))
+        conn.commit()
+
+def atualizar_metricas_diarias():
+    """Atualiza as métricas diárias"""
+    hoje = datetime.now().date()
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
         
-        if (tipo === 'texto') {
-          conteudo = item.querySelector('textarea').value;
-        } else if (tipo === 'audio') {
-          const urlInput = item.querySelector('.url-input input');
-          const fileBase64 = item.getAttribute('data-audio-base64');
-          const isFileMethod = !item.querySelector('.file-input-container').classList.contains('hidden');
-          
-          if (isFileMethod && fileBase64) {
-            conteudo = fileBase64; // Base64 do arquivo
-          } else {
-            conteudo = urlInput.value; // URL
-          }
-        }
+        # Buscar dados do dia
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total_envios,
+                SUM(CASE WHEN status = 'sucesso' THEN 1 ELSE 0 END) as envios_sucesso,
+                SUM(CASE WHEN status = 'erro' THEN 1 ELSE 0 END) as envios_erro,
+                AVG(tempo_resposta) as tempo_medio,
+                COUNT(DISTINCT numero) as numeros_unicos
+            FROM envios 
+            WHERE DATE(timestamp) = ?
+        ''', (hoje,))
         
-        const intervalo = parseInt(item.querySelector('.interval-input').value);
+        dados = cursor.fetchone()
         
-        if (conteudo.trim()) {
-          sequencia.push({
-            ordem: index + 1,
-            tipo: tipo,
-            conteudo: conteudo.trim(),
-            intervalo: intervalo
-          });
-        }
-      });
-      
-      return sequencia;
-    }
+        # Inserir ou atualizar métricas
+        cursor.execute('''
+            INSERT OR REPLACE INTO metricas_diarias 
+            (data, total_envios, envios_sucesso, envios_erro, tempo_medio, numeros_unicos)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            hoje,
+            dados['total_envios'] or 0,
+            dados['envios_sucesso'] or 0,
+            dados['envios_erro'] or 0,
+            dados['tempo_medio'] or 0,
+            dados['numeros_unicos'] or 0
+        ))
+        
+        conn.commit()
 
-    function enviarSequencia() {
-      const sequencia = coletarSequencia();
-      const numeros = document.getElementById('numeros').value
-        .split('\n')
-        .filter(n => n.trim() !== '');
-      
-      if (sequencia.length === 0) {
-        mostrarResposta('❌ Adicione pelo menos uma mensagem à sequência.', 'error');
-        return;
-      }
-      
-      if (numeros.length === 0) {
-        mostrarResposta('❌ Adicione pelo menos um número de telefone.', 'error');
-        return;
-      }
-      
-      // Mostrar loading
-      document.getElementById('loading').style.display = 'block';
-      document.getElementById('resposta').style.display = 'none';
-      
-      fetch('/enviar-sequencia', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          sequencia: sequencia,
-          numeros: numeros
+def is_base64(s):
+    """Verifica se a string é um base64 válido"""
+    try:
+        if isinstance(s, str):
+            if s.startswith('data:audio'):
+                return True
+            base64.b64decode(s, validate=True)
+            return True
+    except Exception:
+        return False
+    return False
+
+def is_url(s):
+    """Verifica se a string é uma URL válida"""
+    url_pattern = re.compile(
+        r'^https?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    return url_pattern.match(s) is not None
+
+def enviar_mensagem_texto(numero, texto, campanha_id=None):
+    """Envia uma mensagem de texto"""
+    start_time = time.time()
+    try:
+        payload = {"phone": numero, "message": texto}
+        response = requests.post(URL_TEXT, json=payload, headers=HEADERS)
+        tempo_resposta = time.time() - start_time
+        
+        status = 'sucesso' if response.status_code == 200 else 'erro'
+        log(f"💬 Texto para {numero}: {response.status_code}")
+        
+        # Salvar no banco
+        if campanha_id:
+            salvar_envio(
+                campanha_id, numero, 'texto', texto, 
+                status, tempo_resposta, response.status_code,
+                response.text if response.status_code != 200 else None
+            )
+        
+        return response.status_code == 200
+    except Exception as e:
+        tempo_resposta = time.time() - start_time
+        log(f"❌ Erro ao enviar texto para {numero}: {str(e)}")
+        
+        if campanha_id:
+            salvar_envio(
+                campanha_id, numero, 'texto', texto, 
+                'erro', tempo_resposta, None, str(e)
+            )
+        
+        return False
+
+def enviar_mensagem_audio(numero, audio_content, campanha_id=None):
+    """Envia uma mensagem de áudio (URL ou base64)"""
+    start_time = time.time()
+    try:
+        payload = {"phone": numero}
+        
+        if is_base64(audio_content):
+            log(f"🎧 Enviando áudio base64 para {numero}")
+            payload["audio"] = audio_content
+        elif is_url(audio_content):
+            log(f"🎧 Enviando áudio URL para {numero}")
+            payload["audio"] = audio_content
+        else:
+            log(f"❌ Formato de áudio inválido para {numero}")
+            if campanha_id:
+                salvar_envio(
+                    campanha_id, numero, 'audio', audio_content[:100], 
+                    'erro', 0, None, 'Formato de áudio inválido'
+                )
+            return False
+        
+        response = requests.post(URL_AUDIO, json=payload, headers=HEADERS)
+        tempo_resposta = time.time() - start_time
+        
+        status = 'sucesso' if response.status_code == 200 else 'erro'
+        log(f"🎧 Áudio para {numero}: {response.status_code}")
+        
+        if response.status_code != 200:
+            log(f"❌ Resposta da API: {response.text}")
+        
+        # Salvar no banco
+        if campanha_id:
+            salvar_envio(
+                campanha_id, numero, 'audio', audio_content[:100], 
+                status, tempo_resposta, response.status_code,
+                response.text if response.status_code != 200 else None
+            )
+        
+        return response.status_code == 200
+    except Exception as e:
+        tempo_resposta = time.time() - start_time
+        log(f"❌ Erro ao enviar áudio para {numero}: {str(e)}")
+        
+        if campanha_id:
+            salvar_envio(
+                campanha_id, numero, 'audio', audio_content[:100], 
+                'erro', tempo_resposta, None, str(e)
+            )
+        
+        return False
+
+def processar_sequencia_para_numero(numero, sequencia, campanha_id):
+    """Processa toda a sequência de mensagens para um número específico"""
+    log(f"🎯 Iniciando sequência para {numero}")
+    
+    for i, mensagem in enumerate(sequencia):
+        try:
+            tipo = mensagem['tipo']
+            conteudo = mensagem['conteudo']
+            intervalo = mensagem['intervalo']
+            ordem = mensagem['ordem']
+            
+            log(f"📤 Enviando mensagem {ordem}/{len(sequencia)} para {numero}")
+            
+            # Enviar mensagem baseada no tipo
+            sucesso = False
+            if tipo == 'texto':
+                sucesso = enviar_mensagem_texto(numero, conteudo, campanha_id)
+            elif tipo == 'audio':
+                sucesso = enviar_mensagem_audio(numero, conteudo, campanha_id)
+            
+            if sucesso:
+                log(f"✅ Mensagem {ordem} enviada com sucesso para {numero}")
+            else:
+                log(f"❌ Falha ao enviar mensagem {ordem} para {numero}")
+            
+            # Aguardar intervalo antes da próxima mensagem (exceto na última)
+            if i < len(sequencia) - 1:
+                log(f"⏳ Aguardando {intervalo}s antes da próxima mensagem...")
+                time.sleep(intervalo)
+                
+        except Exception as e:
+            log(f"❌ Erro ao processar mensagem {ordem} para {numero}: {str(e)}")
+    
+    log(f"🏁 Sequência finalizada para {numero}")
+
+def executar_disparo_sequencial(numeros, sequencia, campanha_id):
+    """Executa o disparo sequencial para todos os números"""
+    log(f"🚀 Iniciando disparo sequencial para {len(numeros)} números")
+    log(f"📋 Sequência: {len(sequencia)} mensagens por número")
+    
+    threads = []
+    
+    for numero in numeros:
+        thread = threading.Thread(
+            target=processar_sequencia_para_numero, 
+            args=(numero, sequencia, campanha_id)
+        )
+        threads.append(thread)
+        thread.start()
+        time.sleep(2)
+    
+    # Aguardar todas as threads terminarem
+    for thread in threads:
+        thread.join()
+    
+    # Finalizar campanha
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE campanhas 
+            SET status = 'finalizada', data_finalizacao = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (campanha_id,))
+        conn.commit()
+    
+    # Atualizar métricas
+    atualizar_metricas_diarias()
+    
+    log("🎉 Disparo sequencial finalizado para todos os números!")
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/dashboard', methods=['GET'])
+def get_dashboard_data():
+    """Retorna dados do dashboard"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Métricas gerais
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total_envios,
+                    SUM(CASE WHEN status = 'sucesso' THEN 1 ELSE 0 END) as envios_sucesso,
+                    COUNT(DISTINCT numero) as numeros_unicos
+                FROM envios
+            ''')
+            metricas_gerais = cursor.fetchone()
+            
+            # Campanhas ativas
+            cursor.execute('SELECT COUNT(*) as ativas FROM campanhas WHERE status = "ativa"')
+            campanhas_ativas = cursor.fetchone()['ativas']
+            
+            # Métricas de hoje
+            hoje = datetime.now().date()
+            cursor.execute('''
+                SELECT * FROM metricas_diarias WHERE data = ?
+            ''', (hoje,))
+            metricas_hoje = cursor.fetchone()
+            
+            # Métricas da semana
+            semana_atras = hoje - timedelta(days=7)
+            cursor.execute('''
+                SELECT SUM(total_envios) as envios_semana
+                FROM metricas_diarias 
+                WHERE data >= ?
+            ''', (semana_atras,))
+            envios_semana = cursor.fetchone()['envios_semana'] or 0
+            
+            # Taxa de sucesso
+            taxa_sucesso = 0
+            if metricas_gerais['total_envios'] > 0:
+                taxa_sucesso = round((metricas_gerais['envios_sucesso'] / metricas_gerais['total_envios']) * 100, 1)
+            
+            # Maior campanha
+            cursor.execute('''
+                SELECT MAX(total_numeros * total_mensagens) as maior_campanha
+                FROM campanhas
+            ''')
+            maior_campanha = cursor.fetchone()['maior_campanha'] or 0
+            
+            # Tempo médio
+            cursor.execute('SELECT AVG(tempo_resposta) as tempo_medio FROM envios WHERE tempo_resposta IS NOT NULL')
+            tempo_medio = cursor.fetchone()['tempo_medio'] or 0
+            
+            return jsonify({
+                'status': 'ok',
+                'data': {
+                    'total_envios': metricas_gerais['total_envios'],
+                    'taxa_sucesso': taxa_sucesso,
+                    'campanhas_ativas': campanhas_ativas,
+                    'numeros_unicos': metricas_gerais['numeros_unicos'],
+                    'envios_hoje': metricas_hoje['total_envios'] if metricas_hoje else 0,
+                    'envios_semana': envios_semana,
+                    'tempo_medio': round(tempo_medio, 2),
+                    'maior_campanha': maior_campanha
+                }
+            })
+            
+    except Exception as e:
+        log(f"❌ Erro ao buscar dados do dashboard: {str(e)}")
+        return jsonify({'status': 'error', 'mensagem': str(e)})
+
+@app.route('/api/reports', methods=['GET'])
+def get_reports():
+    """Retorna dados de relatórios"""
+    try:
+        data_inicio = request.args.get('data_inicio')
+        data_fim = request.args.get('data_fim')
+        status_filter = request.args.get('status')
+        tipo_filter = request.args.get('tipo')
+        
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Construir query com filtros
+            query = '''
+                SELECT 
+                    e.timestamp,
+                    e.numero,
+                    e.tipo,
+                    e.status,
+                    e.conteudo,
+                    c.nome as campanha
+                FROM envios e
+                LEFT JOIN campanhas c ON e.campanha_id = c.id
+                WHERE 1=1
+            '''
+            params = []
+            
+            if data_inicio:
+                query += ' AND DATE(e.timestamp) >= ?'
+                params.append(data_inicio)
+            
+            if data_fim:
+                query += ' AND DATE(e.timestamp) <= ?'
+                params.append(data_fim)
+            
+            if status_filter:
+                query += ' AND e.status = ?'
+                params.append(status_filter)
+            
+            if tipo_filter:
+                query += ' AND e.tipo = ?'
+                params.append(tipo_filter)
+            
+            query += ' ORDER BY e.timestamp DESC LIMIT 1000'
+            
+            cursor.execute(query, params)
+            envios = cursor.fetchall()
+            
+            # Converter para lista de dicionários
+            resultado = []
+            for envio in envios:
+                resultado.append({
+                    'timestamp': envio['timestamp'],
+                    'numero': envio['numero'],
+                    'tipo': envio['tipo'],
+                    'status': envio['status'],
+                    'conteudo': envio['conteudo'],
+                    'campanha': envio['campanha']
+                })
+            
+            return jsonify({
+                'status': 'ok',
+                'data': resultado
+            })
+            
+    except Exception as e:
+        log(f"❌ Erro ao buscar relatórios: {str(e)}")
+        return jsonify({'status': 'error', 'mensagem': str(e)})
+
+@app.route('/api/export-csv', methods=['GET'])
+def export_csv():
+    """Exporta relatórios em CSV"""
+    try:
+        data_inicio = request.args.get('data_inicio')
+        data_fim = request.args.get('data_fim')
+        status_filter = request.args.get('status')
+        tipo_filter = request.args.get('tipo')
+        
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Mesma query do relatório
+            query = '''
+                SELECT 
+                    e.timestamp,
+                    e.numero,
+                    e.tipo,
+                    e.status,
+                    e.conteudo,
+                    c.nome as campanha
+                FROM envios e
+                LEFT JOIN campanhas c ON e.campanha_id = c.id
+                WHERE 1=1
+            '''
+            params = []
+            
+            if data_inicio:
+                query += ' AND DATE(e.timestamp) >= ?'
+                params.append(data_inicio)
+            
+            if data_fim:
+                query += ' AND DATE(e.timestamp) <= ?'
+                params.append(data_fim)
+            
+            if status_filter:
+                query += ' AND e.status = ?'
+                params.append(status_filter)
+            
+            if tipo_filter:
+                query += ' AND e.tipo = ?'
+                params.append(tipo_filter)
+            
+            query += ' ORDER BY e.timestamp DESC'
+            
+            cursor.execute(query, params)
+            envios = cursor.fetchall()
+            
+            # Gerar CSV
+            import csv
+            from io import StringIO
+            
+            output = StringIO()
+            writer = csv.writer(output)
+            
+            # Cabeçalho
+            writer.writerow(['Data/Hora', 'Número', 'Tipo', 'Status', 'Mensagem', 'Campanha'])
+            
+            # Dados
+            for envio in envios:
+                writer.writerow([
+                    envio['timestamp'],
+                    envio['numero'],
+                    envio['tipo'],
+                    envio['status'],
+                    envio['conteudo'][:100] + '...' if len(envio['conteudo']) > 100 else envio['conteudo'],
+                    envio['campanha'] or 'N/A'
+                ])
+            
+            csv_content = output.getvalue()
+            output.close()
+            
+            from flask import Response
+            return Response(
+                csv_content,
+                mimetype='text/csv',
+                headers={'Content-Disposition': f'attachment; filename=relatorio_whatsapp_{datetime.now().strftime("%Y%m%d")}.csv'}
+            )
+            
+    except Exception as e:
+        log(f"❌ Erro ao exportar CSV: {str(e)}")
+        return jsonify({'status': 'error', 'mensagem': str(e)})
+
+@app.route('/enviar-sequencia', methods=['POST'])
+def enviar_sequencia():
+    try:
+        data = request.json
+        sequencia = data.get('sequencia', [])
+        numeros = data.get('numeros', [])
+        
+        # Validações
+        if not sequencia:
+            return jsonify({
+                'status': 'error', 
+                'mensagem': 'Nenhuma mensagem na sequência'
+            })
+        
+        if not numeros:
+            return jsonify({
+                'status': 'error', 
+                'mensagem': 'Nenhum número fornecido'
+            })
+        
+        # Validar se as variáveis de ambiente estão configuradas
+        if not all([INSTANCE, TOKEN, SECURITY_TOKEN]):
+            return jsonify({
+                'status': 'error', 
+                'mensagem': 'Configurações da API não encontradas'
+            })
+        
+        # Salvar campanha
+        campanha_id = salvar_campanha(sequencia, numeros)
+        
+        # Log da sequência para debug
+        for msg in sequencia:
+            if msg['tipo'] == 'audio':
+                content_type = 'base64' if is_base64(msg['conteudo']) else 'url'
+                log(f"📋 Áudio {msg['ordem']}: {content_type}")
+        
+        # Iniciar disparo em thread separada
+        thread = threading.Thread(
+            target=executar_disparo_sequencial, 
+            args=(numeros, sequencia, campanha_id)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'status': 'ok', 
+            'mensagem': 'Disparo sequencial iniciado com sucesso',
+            'campanha_id': campanha_id,
+            'detalhes': {
+                'numeros': len(numeros),
+                'mensagens_por_numero': len(sequencia),
+                'total_envios': len(numeros) * len(sequencia)
+            }
         })
-      })
-      .then(r => r.json())
-      .then(data => {
-        document.getElementById('loading').style.display = 'none';
-        if (data.status === 'ok') {
-          mostrarResposta(`✅ Disparo sequencial iniciado com sucesso!\n\n📊 Estatísticas:\n• ${numeros.length} números\n• ${sequencia.length} mensagens por número\n• Total de ${numeros.length * sequencia.length} envios`, 'success');
-        } else {
-          mostrarResposta(`❌ Erro: ${data.mensagem}`, 'error');
-        }
-      })
-      .catch(error => {
-        document.getElementById('loading').style.display = 'none';
-        mostrarResposta(`❌ Erro de conexão: ${error.message}`, 'error');
-      });
-    }
+        
+    except Exception as e:
+        log(f"❌ Erro no endpoint /enviar-sequencia: {str(e)}")
+        return jsonify({
+            'status': 'error', 
+            'mensagem': f'Erro interno: {str(e)}'
+        })
 
-    function mostrarResposta(mensagem, tipo) {
-      const resposta = document.getElementById('resposta');
-      resposta.textContent = mensagem;
-      resposta.className = `response ${tipo}`;
-      resposta.style.display = 'block';
-    }
-  </script>
-</body>
-</html>
+# Manter o endpoint antigo para compatibilidade
+@app.route('/enviar', methods=['POST'])
+def enviar():
+    try:
+        data = request.json
+        tipo = data['tipo']
+        textos = data['textos']
+        audios = data['audios']
+        numeros = data['numeros']
+        intervalo = int(data['intervalo'])
+        
+        def processar_envio_legado():
+            for numero in numeros:
+                if tipo in ['texto', 'ambos']:
+                    for texto in textos:
+                        enviar_mensagem_texto(numero, texto)
+                        time.sleep(intervalo)
+                
+                if tipo in ['audio', 'ambos']:
+                    for audio in audios:
+                        enviar_mensagem_audio(numero, audio)
+                        time.sleep(intervalo)
+        
+        thread = threading.Thread(target=processar_envio_legado)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({'status': 'ok', 'mensagem': 'Mensagens enviadas com sucesso.'})
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'mensagem': str(e)})
+
+if __name__ == '__main__':
+    # Inicializar banco de dados
+    init_db()
+    
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
