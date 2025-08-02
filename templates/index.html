@@ -1,655 +1,1593 @@
-from flask import Flask, request, jsonify, render_template
-import requests
-import time
-import os
-from datetime import datetime, timedelta
-import threading
-import base64
-import re
-import json
-import sqlite3
-from contextlib import contextmanager
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disparador WhatsApp Pro</title>
+  <style>
+    :root {
+      --primary-color: #667eea;
+      --primary-dark: #764ba2;
+      --success-color: #48bb78;
+      --error-color: #f56565;
+      --warning-color: #ed8936;
+      --bg-light: #f7fafc;
+      --bg-white: #ffffff;
+      --text-primary: #2d3748;
+      --text-secondary: #718096;
+      --border-color: #e2e8f0;
+      --shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    }
 
-app = Flask(__name__)
+    [data-theme="dark"] {
+      --bg-light: #1a202c;
+      --bg-white: #2d3748;
+      --text-primary: #e2e8f0;
+      --text-secondary: #a0aec0;
+      --border-color: #4a5568;
+      --shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
 
-# CONFIG: variáveis de ambiente
-INSTANCE = os.environ.get("INSTANCE")
-TOKEN = os.environ.get("TOKEN")
-SECURITY_TOKEN = os.environ.get("SECURITY_TOKEN")
-
-URL_TEXT = f"https://api.z-api.io/instances/{INSTANCE}/token/{TOKEN}/send-text"
-URL_AUDIO = f"https://api.z-api.io/instances/{INSTANCE}/token/{TOKEN}/send-audio"
-
-HEADERS = {
-    'client-token': SECURITY_TOKEN,
-    'Content-Type': 'application/json'
-}
-
-# Inicializar banco de dados
-def init_db():
-    """Inicializa o banco de dados SQLite"""
-    with sqlite3.connect('whatsapp_dispatcher.db') as conn:
-        cursor = conn.cursor()
-        
-        # Tabela de campanhas
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS campanhas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nome TEXT,
-                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                total_numeros INTEGER,
-                total_mensagens INTEGER,
-                status TEXT DEFAULT 'ativa',
-                data_finalizacao TIMESTAMP
-            )
-        ''')
-        
-        # Tabela de envios
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS envios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                campanha_id INTEGER,
-                numero TEXT,
-                tipo TEXT,
-                conteudo TEXT,
-                status TEXT DEFAULT 'pendente',
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                tempo_resposta REAL,
-                codigo_resposta INTEGER,
-                erro TEXT,
-                FOREIGN KEY (campanha_id) REFERENCES campanhas (id)
-            )
-        ''')
-        
-        # Tabela de métricas diárias
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS metricas_diarias (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                data DATE UNIQUE,
-                total_envios INTEGER DEFAULT 0,
-                envios_sucesso INTEGER DEFAULT 0,
-                envios_erro INTEGER DEFAULT 0,
-                tempo_medio REAL DEFAULT 0,
-                numeros_unicos INTEGER DEFAULT 0
-            )
-        ''')
-        
-        conn.commit()
-
-@contextmanager
-def get_db():
-    """Context manager para conexão com banco de dados"""
-    conn = sqlite3.connect('whatsapp_dispatcher.db')
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
-
-def salvar_campanha(sequencia, numeros):
-    """Salva uma nova campanha no banco de dados"""
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO campanhas (nome, total_numeros, total_mensagens)
-            VALUES (?, ?, ?)
-        ''', (
-            f"Campanha_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            len(numeros),
-            len(sequencia)
-        ))
-        return cursor.lastrowid
-
-def salvar_envio(campanha_id, numero, tipo, conteudo, status, tempo_resposta=None, codigo_resposta=None, erro=None):
-    """Salva um envio no banco de dados"""
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO envios (campanha_id, numero, tipo, conteudo, status, tempo_resposta, codigo_resposta, erro)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (campanha_id, numero, tipo, conteudo[:500], status, tempo_resposta, codigo_resposta, erro))
-        conn.commit()
-
-def atualizar_metricas_diarias():
-    """Atualiza as métricas diárias"""
-    hoje = datetime.now().date()
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     
-    with get_db() as conn:
-        cursor = conn.cursor()
-        
-        # Buscar dados do dia
-        cursor.execute('''
-            SELECT 
-                COUNT(*) as total_envios,
-                SUM(CASE WHEN status = 'sucesso' THEN 1 ELSE 0 END) as envios_sucesso,
-                SUM(CASE WHEN status = 'erro' THEN 1 ELSE 0 END) as envios_erro,
-                AVG(tempo_resposta) as tempo_medio,
-                COUNT(DISTINCT numero) as numeros_unicos
-            FROM envios 
-            WHERE DATE(timestamp) = ?
-        ''', (hoje,))
-        
-        dados = cursor.fetchone()
-        
-        # Inserir ou atualizar métricas
-        cursor.execute('''
-            INSERT OR REPLACE INTO metricas_diarias 
-            (data, total_envios, envios_sucesso, envios_erro, tempo_medio, numeros_unicos)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            hoje,
-            dados['total_envios'] or 0,
-            dados['envios_sucesso'] or 0,
-            dados['envios_erro'] or 0,
-            dados['tempo_medio'] or 0,
-            dados['numeros_unicos'] or 0
-        ))
-        
-        conn.commit()
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+      min-height: 100vh;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
 
-def is_base64(s):
-    """Verifica se a string é um base64 válido"""
-    try:
-        if isinstance(s, str):
-            if s.startswith('data:audio'):
-                return True
-            base64.b64decode(s, validate=True)
-            return True
-    except Exception:
-        return False
-    return False
-
-def is_url(s):
-    """Verifica se a string é uma URL válida"""
-    url_pattern = re.compile(
-        r'^https?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-    return url_pattern.match(s) is not None
-
-def enviar_mensagem_texto(numero, texto, campanha_id=None):
-    """Envia uma mensagem de texto"""
-    start_time = time.time()
-    try:
-        payload = {"phone": numero, "message": texto}
-        response = requests.post(URL_TEXT, json=payload, headers=HEADERS)
-        tempo_resposta = time.time() - start_time
-        
-        status = 'sucesso' if response.status_code == 200 else 'erro'
-        log(f"💬 Texto para {numero}: {response.status_code}")
-        
-        # Salvar no banco
-        if campanha_id:
-            salvar_envio(
-                campanha_id, numero, 'texto', texto, 
-                status, tempo_resposta, response.status_code,
-                response.text if response.status_code != 200 else None
-            )
-        
-        return response.status_code == 200
-    except Exception as e:
-        tempo_resposta = time.time() - start_time
-        log(f"❌ Erro ao enviar texto para {numero}: {str(e)}")
-        
-        if campanha_id:
-            salvar_envio(
-                campanha_id, numero, 'texto', texto, 
-                'erro', tempo_resposta, None, str(e)
-            )
-        
-        return False
-
-def enviar_mensagem_audio(numero, audio_content, campanha_id=None):
-    """Envia uma mensagem de áudio (URL ou base64)"""
-    start_time = time.time()
-    try:
-        payload = {"phone": numero}
-        
-        if is_base64(audio_content):
-            log(f"🎧 Enviando áudio base64 para {numero}")
-            payload["audio"] = audio_content
-        elif is_url(audio_content):
-            log(f"🎧 Enviando áudio URL para {numero}")
-            payload["audio"] = audio_content
-        else:
-            log(f"❌ Formato de áudio inválido para {numero}")
-            if campanha_id:
-                salvar_envio(
-                    campanha_id, numero, 'audio', audio_content[:100], 
-                    'erro', 0, None, 'Formato de áudio inválido'
-                )
-            return False
-        
-        response = requests.post(URL_AUDIO, json=payload, headers=HEADERS)
-        tempo_resposta = time.time() - start_time
-        
-        status = 'sucesso' if response.status_code == 200 else 'erro'
-        log(f"🎧 Áudio para {numero}: {response.status_code}")
-        
-        if response.status_code != 200:
-            log(f"❌ Resposta da API: {response.text}")
-        
-        # Salvar no banco
-        if campanha_id:
-            salvar_envio(
-                campanha_id, numero, 'audio', audio_content[:100], 
-                status, tempo_resposta, response.status_code,
-                response.text if response.status_code != 200 else None
-            )
-        
-        return response.status_code == 200
-    except Exception as e:
-        tempo_resposta = time.time() - start_time
-        log(f"❌ Erro ao enviar áudio para {numero}: {str(e)}")
-        
-        if campanha_id:
-            salvar_envio(
-                campanha_id, numero, 'audio', audio_content[:100], 
-                'erro', tempo_resposta, None, str(e)
-            )
-        
-        return False
-
-def processar_sequencia_para_numero(numero, sequencia, campanha_id):
-    """Processa toda a sequência de mensagens para um número específico"""
-    log(f"🎯 Iniciando sequência para {numero}")
+    [data-theme="dark"] body {
+      background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    }
     
-    for i, mensagem in enumerate(sequencia):
-        try:
-            tipo = mensagem['tipo']
-            conteudo = mensagem['conteudo']
-            intervalo = mensagem['intervalo']
-            ordem = mensagem['ordem']
-            
-            log(f"📤 Enviando mensagem {ordem}/{len(sequencia)} para {numero}")
-            
-            # Enviar mensagem baseada no tipo
-            sucesso = False
-            if tipo == 'texto':
-                sucesso = enviar_mensagem_texto(numero, conteudo, campanha_id)
-            elif tipo == 'audio':
-                sucesso = enviar_mensagem_audio(numero, conteudo, campanha_id)
-            
-            if sucesso:
-                log(f"✅ Mensagem {ordem} enviada com sucesso para {numero}")
-            else:
-                log(f"❌ Falha ao enviar mensagem {ordem} para {numero}")
-            
-            # Aguardar intervalo antes da próxima mensagem (exceto na última)
-            if i < len(sequencia) - 1:
-                log(f"⏳ Aguardando {intervalo}s antes da próxima mensagem...")
-                time.sleep(intervalo)
-                
-        except Exception as e:
-            log(f"❌ Erro ao processar mensagem {ordem} para {numero}: {str(e)}")
-    
-    log(f"🏁 Sequência finalizada para {numero}")
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+    }
 
-def executar_disparo_sequencial(numeros, sequencia, campanha_id):
-    """Executa o disparo sequencial para todos os números"""
-    log(f"🚀 Iniciando disparo sequencial para {len(numeros)} números")
-    log(f"📋 Sequência: {len(sequencia)} mensagens por número")
-    
-    threads = []
-    
-    for numero in numeros:
-        thread = threading.Thread(
-            target=processar_sequencia_para_numero, 
-            args=(numero, sequencia, campanha_id)
-        )
-        threads.append(thread)
-        thread.start()
-        time.sleep(2)
-    
-    # Aguardar todas as threads terminarem
-    for thread in threads:
-        thread.join()
-    
-    # Finalizar campanha
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            UPDATE campanhas 
-            SET status = 'finalizada', data_finalizacao = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ''', (campanha_id,))
-        conn.commit()
-    
-    # Atualizar métricas
-    atualizar_metricas_diarias()
-    
-    log("🎉 Disparo sequencial finalizado para todos os números!")
+    [data-theme="dark"] .container {
+      background: rgba(45, 55, 72, 0.95);
+    }
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+    }
 
-@app.route('/api/dashboard', methods=['GET'])
-def get_dashboard_data():
-    """Retorna dados do dashboard"""
-    try:
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            # Métricas gerais
-            cursor.execute('''
-                SELECT 
-                    COUNT(*) as total_envios,
-                    SUM(CASE WHEN status = 'sucesso' THEN 1 ELSE 0 END) as envios_sucesso,
-                    COUNT(DISTINCT numero) as numeros_unicos
-                FROM envios
-            ''')
-            metricas_gerais = cursor.fetchone()
-            
-            # Campanhas ativas
-            cursor.execute('SELECT COUNT(*) as ativas FROM campanhas WHERE status = "ativa"')
-            campanhas_ativas = cursor.fetchone()['ativas']
-            
-            # Métricas de hoje
-            hoje = datetime.now().date()
-            cursor.execute('''
-                SELECT * FROM metricas_diarias WHERE data = ?
-            ''', (hoje,))
-            metricas_hoje = cursor.fetchone()
-            
-            # Métricas da semana
-            semana_atras = hoje - timedelta(days=7)
-            cursor.execute('''
-                SELECT SUM(total_envios) as envios_semana
-                FROM metricas_diarias 
-                WHERE data >= ?
-            ''', (semana_atras,))
-            envios_semana = cursor.fetchone()['envios_semana'] or 0
-            
-            # Taxa de sucesso
-            taxa_sucesso = 0
-            if metricas_gerais['total_envios'] > 0:
-                taxa_sucesso = round((metricas_gerais['envios_sucesso'] / metricas_gerais['total_envios']) * 100, 1)
-            
-            # Maior campanha
-            cursor.execute('''
-                SELECT MAX(total_numeros * total_mensagens) as maior_campanha
-                FROM campanhas
-            ''')
-            maior_campanha = cursor.fetchone()['maior_campanha'] or 0
-            
-            # Tempo médio
-            cursor.execute('SELECT AVG(tempo_resposta) as tempo_medio FROM envios WHERE tempo_resposta IS NOT NULL')
-            tempo_medio = cursor.fetchone()['tempo_medio'] or 0
-            
-            return jsonify({
-                'status': 'ok',
-                'data': {
-                    'total_envios': metricas_gerais['total_envios'],
-                    'taxa_sucesso': taxa_sucesso,
-                    'campanhas_ativas': campanhas_ativas,
-                    'numeros_unicos': metricas_gerais['numeros_unicos'],
-                    'envios_hoje': metricas_hoje['total_envios'] if metricas_hoje else 0,
-                    'envios_semana': envios_semana,
-                    'tempo_medio': round(tempo_medio, 2),
-                    'maior_campanha': maior_campanha
-                }
-            })
-            
-    except Exception as e:
-        log(f"❌ Erro ao buscar dados do dashboard: {str(e)}")
-        return jsonify({'status': 'error', 'mensagem': str(e)})
+    .header-content h1 {
+      color: var(--text-primary);
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
 
-@app.route('/api/reports', methods=['GET'])
-def get_reports():
-    """Retorna dados de relatórios"""
-    try:
-        data_inicio = request.args.get('data_inicio')
-        data_fim = request.args.get('data_fim')
-        status_filter = request.args.get('status')
-        tipo_filter = request.args.get('tipo')
-        
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            # Construir query com filtros
-            query = '''
-                SELECT 
-                    e.timestamp,
-                    e.numero,
-                    e.tipo,
-                    e.status,
-                    e.conteudo,
-                    c.nome as campanha
-                FROM envios e
-                LEFT JOIN campanhas c ON e.campanha_id = c.id
-                WHERE 1=1
-            '''
-            params = []
-            
-            if data_inicio:
-                query += ' AND DATE(e.timestamp) >= ?'
-                params.append(data_inicio)
-            
-            if data_fim:
-                query += ' AND DATE(e.timestamp) <= ?'
-                params.append(data_fim)
-            
-            if status_filter:
-                query += ' AND e.status = ?'
-                params.append(status_filter)
-            
-            if tipo_filter:
-                query += ' AND e.tipo = ?'
-                params.append(tipo_filter)
-            
-            query += ' ORDER BY e.timestamp DESC LIMIT 1000'
-            
-            cursor.execute(query, params)
-            envios = cursor.fetchall()
-            
-            # Converter para lista de dicionários
-            resultado = []
-            for envio in envios:
-                resultado.append({
-                    'timestamp': envio['timestamp'],
-                    'numero': envio['numero'],
-                    'tipo': envio['tipo'],
-                    'status': envio['status'],
-                    'conteudo': envio['conteudo'],
-                    'campanha': envio['campanha']
-                })
-            
-            return jsonify({
-                'status': 'ok',
-                'data': resultado
-            })
-            
-    except Exception as e:
-        log(f"❌ Erro ao buscar relatórios: {str(e)}")
-        return jsonify({'status': 'error', 'mensagem': str(e)})
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+    }
 
-@app.route('/api/export-csv', methods=['GET'])
-def export_csv():
-    """Exporta relatórios em CSV"""
-    try:
-        data_inicio = request.args.get('data_inicio')
-        data_fim = request.args.get('data_fim')
-        status_filter = request.args.get('status')
-        tipo_filter = request.args.get('tipo')
-        
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            # Mesma query do relatório
-            query = '''
-                SELECT 
-                    e.timestamp,
-                    e.numero,
-                    e.tipo,
-                    e.status,
-                    e.conteudo,
-                    c.nome as campanha
-                FROM envios e
-                LEFT JOIN campanhas c ON e.campanha_id = c.id
-                WHERE 1=1
-            '''
-            params = []
-            
-            if data_inicio:
-                query += ' AND DATE(e.timestamp) >= ?'
-                params.append(data_inicio)
-            
-            if data_fim:
-                query += ' AND DATE(e.timestamp) <= ?'
-                params.append(data_fim)
-            
-            if status_filter:
-                query += ' AND e.status = ?'
-                params.append(status_filter)
-            
-            if tipo_filter:
-                query += ' AND e.tipo = ?'
-                params.append(tipo_filter)
-            
-            query += ' ORDER BY e.timestamp DESC'
-            
-            cursor.execute(query, params)
-            envios = cursor.fetchall()
-            
-            # Gerar CSV
-            import csv
-            from io import StringIO
-            
-            output = StringIO()
-            writer = csv.writer(output)
-            
-            # Cabeçalho
-            writer.writerow(['Data/Hora', 'Número', 'Tipo', 'Status', 'Mensagem', 'Campanha'])
-            
-            # Dados
-            for envio in envios:
-                writer.writerow([
-                    envio['timestamp'],
-                    envio['numero'],
-                    envio['tipo'],
-                    envio['status'],
-                    envio['conteudo'][:100] + '...' if len(envio['conteudo']) > 100 else envio['conteudo'],
-                    envio['campanha'] or 'N/A'
-                ])
-            
-            csv_content = output.getvalue()
-            output.close()
-            
-            from flask import Response
-            return Response(
-                csv_content,
-                mimetype='text/csv',
-                headers={'Content-Disposition': f'attachment; filename=relatorio_whatsapp_{datetime.now().strftime("%Y%m%d")}.csv'}
-            )
-            
-    except Exception as e:
-        log(f"❌ Erro ao exportar CSV: {str(e)}")
-        return jsonify({'status': 'error', 'mensagem': str(e)})
+    .header-controls {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
 
-@app.route('/enviar-sequencia', methods=['POST'])
-def enviar_sequencia():
-    try:
-        data = request.json
-        sequencia = data.get('sequencia', [])
-        numeros = data.get('numeros', [])
+    .theme-toggle {
+      background: var(--bg-light);
+      border: 2px solid var(--border-color);
+      border-radius: 50px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-primary);
+    }
+
+    .theme-toggle:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .nav-tab {
+      padding: 12px 24px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 10px 10px 0 0;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .nav-tab.active {
+      color: var(--primary-color);
+      background: var(--bg-white);
+    }
+
+    .nav-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--primary-color);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .metric-card {
+      background: var(--bg-white);
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .metric-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .metric-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .metric-title {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .metric-icon {
+      font-size: 1.5rem;
+    }
+
+    .metric-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 5px;
+    }
+
+    .metric-change {
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .metric-change.positive {
+      color: var(--success-color);
+    }
+
+    .metric-change.negative {
+      color: var(--error-color);
+    }
+
+    .section {
+      margin-bottom: 30px;
+      padding: 25px;
+      background: var(--bg-white);
+      border-radius: 15px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+    
+    .section-title {
+      font-size: 1.3rem;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-light);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--success-color), var(--primary-color));
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .status-idle {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+
+    .status-running {
+      background: #fef5e7;
+      color: #744210;
+    }
+
+    .status-success {
+      background: #f0fff4;
+      color: #22543d;
+    }
+
+    .status-error {
+      background: #fed7d7;
+      color: #c53030;
+    }
+
+    .reports-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .chart-container {
+      background: var(--bg-white);
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    .chart-placeholder {
+      height: 300px;
+      background: var(--bg-light);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .activity-feed {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px;
+      border-bottom: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .activity-item:hover {
+      background: var(--bg-light);
+    }
+
+    .activity-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .activity-success {
+      background: #f0fff4;
+      color: var(--success-color);
+    }
+
+    .activity-error {
+      background: #fed7d7;
+      color: var(--error-color);
+    }
+
+    .activity-info {
+      background: #ebf8ff;
+      color: var(--primary-color);
+    }
+
+    .activity-content {
+      flex: 1;
+    }
+
+    .activity-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 5px;
+    }
+
+    .activity-time {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+    
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      background: var(--bg-light);
+      color: var(--text-primary);
+    }
+    
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      background: var(--bg-white);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .sequence-container {
+      border: 2px dashed var(--border-color);
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 200px;
+      background: var(--bg-light);
+    }
+    
+    .sequence-item {
+      background: var(--bg-white);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 15px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    
+    .sequence-item:hover {
+      box-shadow: var(--shadow);
+      transform: translateY(-2px);
+    }
+    
+    .sequence-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .sequence-number {
+      background: var(--primary-color);
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    
+    .sequence-type {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    
+    .type-texto {
+      background: #e6fffa;
+      color: #234e52;
+    }
+    
+    .type-audio {
+      background: #fef5e7;
+      color: #744210;
+    }
+    
+    .remove-btn {
+      background: #fed7d7;
+      color: #c53030;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: all 0.3s ease;
+    }
+    
+    .remove-btn:hover {
+      background: #feb2b2;
+      transform: scale(1.1);
+    }
+    
+    .sequence-content {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 15px;
+      align-items: end;
+    }
+    
+    .audio-input-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .audio-method-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .method-btn {
+      padding: 8px 16px;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-light);
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      color: var(--text-primary);
+    }
+    
+    .method-btn.active {
+      border-color: var(--primary-color);
+      background: var(--primary-color);
+      color: white;
+    }
+    
+    .file-input-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+    
+    .file-input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+    
+    .file-input-display {
+      padding: 12px 16px;
+      border: 2px dashed var(--border-color);
+      border-radius: 10px;
+      background: var(--bg-light);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: var(--text-primary);
+    }
+    
+    .file-input-display:hover {
+      border-color: var(--primary-color);
+      background: var(--bg-white);
+    }
+    
+    .file-input-display.has-file {
+      border-color: var(--success-color);
+      background: #f0fff4;
+      color: #22543d;
+    }
+    
+    .file-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 5px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    
+    .add-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-secondary {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--text-secondary);
+      color: white;
+      transform: translateY(-1px);
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, var(--success-color) 0%, #38a169 100%);
+      color: white;
+      font-size: 1.1rem;
+      padding: 15px 30px;
+      margin-top: 30px;
+      width: 100%;
+    }
+    
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(72, 187, 120, 0.3);
+    }
+
+    .btn-export {
+      background: var(--warning-color);
+      color: white;
+    }
+
+    .btn-export:hover {
+      background: #dd6b20;
+      transform: translateY(-2px);
+    }
+    
+    .response {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      display: none;
+    }
+    
+    .response.success {
+      background: #f0fff4;
+      border: 1px solid #9ae6b4;
+      color: #22543d;
+    }
+    
+    .response.error {
+      background: #fed7d7;
+      border: 1px solid #feb2b2;
+      color: #c53030;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .spinner {
+      border: 3px solid var(--border-color);
+      border-top: 3px solid var(--primary-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: var(--text-secondary);
+      font-style: italic;
+      padding: 40px 20px;
+    }
+    
+    .interval-input {
+      width: 100px;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+
+    .filters {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .filter-group label {
+      font-size: 0.8rem;
+      margin-bottom: 0;
+    }
+
+    .filter-group input,
+    .filter-group select {
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .reports-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--bg-white);
+    }
+
+    .reports-table th,
+    .reports-table td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .reports-table th {
+      background: var(--bg-light);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .reports-table td {
+      color: var(--text-primary);
+    }
+
+    .reports-table tr:hover {
+      background: var(--bg-light);
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .reports-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-tabs {
+        flex-wrap: wrap;
+      }
+
+      .filters {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-content">
+        <h1>📱 Disparador WhatsApp Pro</h1>
+        <p class="subtitle">Sistema avançado de envio sequencial com dashboard e relatórios</p>
+      </div>
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()">
+          <span id="theme-icon">🌙</span>
+          <span id="theme-text">Modo Escuro</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+      <button class="nav-tab" onclick="switchTab('messages')">💬 Mensagens</button>
+      <button class="nav-tab" onclick="switchTab('reports')">📈 Relatórios</button>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div id="dashboard-tab" class="tab-content active">
+      <div class="dashboard-grid">
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Total de Envios</span>
+            <span class="metric-icon">📤</span>
+          </div>
+          <div class="metric-value" id="total-envios">0</div>
+          <div class="metric-change positive" id="envios-change">+0% hoje</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Taxa de Sucesso</span>
+            <span class="metric-icon">✅</span>
+          </div>
+          <div class="metric-value" id="taxa-sucesso">0%</div>
+          <div class="metric-change positive" id="sucesso-change">+0% hoje</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Campanhas Ativas</span>
+            <span class="metric-icon">🚀</span>
+          </div>
+          <div class="metric-value" id="campanhas-ativas">0</div>
+          <div class="metric-change" id="campanhas-change">0 em execução</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Números Únicos</span>
+            <span class="metric-icon">📱</span>
+          </div>
+          <div class="metric-value" id="numeros-unicos">0</div>
+          <div class="metric-change" id="numeros-change">0 novos hoje</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">
+          <span>⚡</span>
+          Status do Sistema
+        </h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <span class="status-indicator" id="system-status">
+            <span>🟢</span>
+            Sistema Operacional
+          </span>
+          <span id="last-update">Última atualização: agora</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="system-progress"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; color: var(--text-secondary);">
+          <span>Processamento: <span id="processing-count">0</span></span>
+          <span>Fila: <span id="queue-count">0</span></span>
+        </div>
+      </div>
+
+      <div class="reports-grid">
+        <div class="chart-container">
+          <h3 class="section-title">📈 Envios por Hora</h3>
+          <div class="chart-placeholder" id="hourly-chart">
+            Gráfico de envios por hora será exibido aqui
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <h3 class="section-title">📋 Atividade Recente</h3>
+          <div class="activity-feed" id="activity-feed">
+            <div class="activity-item">
+              <div class="activity-icon activity-info">ℹ️</div>
+              <div class="activity-content">
+                <div class="activity-title">Sistema iniciado</div>
+                <div class="activity-time">Agora</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages Tab -->
+    <div id="messages-tab" class="tab-content">
+      <div class="section">
+        <h3 class="section-title">
+          <span>📋</span>
+          Sequência de Mensagens
+        </h3>
         
-        # Validações
-        if not sequencia:
-            return jsonify({
-                'status': 'error', 
-                'mensagem': 'Nenhuma mensagem na sequência'
-            })
+        <div class="sequence-container" id="sequenceContainer">
+          <div class="empty-state" id="emptyState">
+            Nenhuma mensagem adicionada. Clique nos botões abaixo para começar.
+          </div>
+        </div>
         
-        if not numeros:
-            return jsonify({
-                'status': 'error', 
-                'mensagem': 'Nenhum número fornecido'
-            })
+        <div class="add-buttons">
+          <button class="btn btn-secondary" onclick="adicionarMensagem('texto')">
+            💬 Adicionar Texto
+          </button>
+          <button class="btn btn-secondary" onclick="adicionarMensagem('audio')">
+            🎧 Adicionar Áudio
+          </button>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3 class="section-title">
+          <span>📞</span>
+          Números de Destino
+        </h3>
+        <div class="form-group">
+          <label>Números de telefone (um por linha):</label>
+          <textarea id="numeros" rows="6" placeholder="Ex: 5511999999999&#10;5511888888888&#10;5511777777777"></textarea>
+        </div>
+      </div>
+      
+      <button class="btn btn-success" onclick="enviarSequencia()">
+        🚀 Iniciar Disparo Sequencial
+      </button>
+      
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Enviando mensagens...</p>
+      </div>
+      
+      <div class="response" id="resposta"></div>
+    </div>
+
+    <!-- Reports Tab -->
+    <div id="reports-tab" class="tab-content">
+      <div class="section">
+        <h3 class="section-title">
+          <span>📊</span>
+          Filtros de Relatório
+        </h3>
+        <div class="filters">
+          <div class="filter-group">
+            <label>Data Início:</label>
+            <input type="date" id="date-start" onchange="updateReports()">
+          </div>
+          <div class="filter-group">
+            <label>Data Fim:</label>
+            <input type="date" id="date-end" onchange="updateReports()">
+          </div>
+          <div class="filter-group">
+            <label>Status:</label>
+            <select id="status-filter" onchange="updateReports()">
+              <option value="">Todos</option>
+              <option value="success">Sucesso</option>
+              <option value="error">Erro</option>
+              <option value="pending">Pendente</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Tipo:</label>
+            <select id="type-filter" onchange="updateReports()">
+              <option value="">Todos</option>
+              <option value="texto">Texto</option>
+              <option value="audio">Áudio</option>
+            </select>
+          </div>
+          <div class="filter-group" style="justify-content: flex-end;">
+            <label>&nbsp;</label>
+            <button class="btn btn-export" onclick="exportReport()">
+              📥 Exportar CSV
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">
+          <span>📋</span>
+          Histórico de Envios
+        </h3>
+        <div class="table-container">
+          <table class="reports-table" id="reports-table">
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Número</th>
+                <th>Tipo</th>
+                <th>Status</th>
+                <th>Mensagem</th>
+                <th>Campanha</th>
+              </tr>
+            </thead>
+            <tbody id="reports-tbody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-secondary); font-style: italic;">
+                  Nenhum envio registrado ainda
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Envios Hoje</span>
+            <span class="metric-icon">📅</span>
+          </div>
+          <div class="metric-value" id="envios-hoje">0</div>
+          <div class="metric-change" id="hoje-change">0 sucessos</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Envios Esta Semana</span>
+            <span class="metric-icon">📊</span>
+          </div>
+          <div class="metric-value" id="envios-semana">0</div>
+          <div class="metric-change" id="semana-change">0 sucessos</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Tempo Médio</span>
+            <span class="metric-icon">⏱️</span>
+          </div>
+          <div class="metric-value" id="tempo-medio">0s</div>
+          <div class="metric-change" id="tempo-change">por mensagem</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Maior Campanha</span>
+            <span class="metric-icon">🏆</span>
+          </div>
+          <div class="metric-value" id="maior-campanha">0</div>
+          <div class="metric-change" id="campanha-change">mensagens</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Estado global da aplicação
+    let sequenceCounter = 0;
+    let messageSequence = [];
+    let dashboardData = {
+      totalEnvios: 0,
+      taxaSucesso: 0,
+      campanhasAtivas: 0,
+      numerosUnicos: new Set(),
+      enviosHoje: 0,
+      enviosSemana: 0,
+      tempoMedio: 0,
+      maiorCampanha: 0,
+      historico: []
+    };
+
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeDashboard();
+      loadStoredData();
+      setDefaultDates();
+      updateDashboard();
+      startRealTimeUpdates();
+    });
+
+    function initializeDashboard() {
+      // Verificar tema salvo
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      updateThemeButton(savedTheme);
+    }
+
+    function loadStoredData() {
+      const stored = localStorage.getItem('dashboardData');
+      if (stored) {
+        const data = JSON.parse(stored);
+        dashboardData = { ...dashboardData, ...data };
+        dashboardData.numerosUnicos = new Set(data.numerosUnicos || []);
+      }
+    }
+
+    function saveData() {
+      const dataToSave = {
+        ...dashboardData,
+        numerosUnicos: Array.from(dashboardData.numerosUnicos)
+      };
+      localStorage.setItem('dashboardData', JSON.stringify(dataToSave));
+    }
+
+    function setDefaultDates() {
+      const today = new Date();
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      document.getElementById('date-end').value = today.toISOString().split('T')[0];
+      document.getElementById('date-start').value = weekAgo.toISOString().split('T')[0];
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeButton(newTheme);
+    }
+
+    function updateThemeButton(theme) {
+      const icon = document.getElementById('theme-icon');
+      const text = document.getElementById('theme-text');
+      
+      if (theme === 'dark') {
+        icon.textContent = '☀️';
+        text.textContent = 'Modo Claro';
+      } else {
+        icon.textContent = '🌙';
+        text.textContent = 'Modo Escuro';
+      }
+    }
+
+    function switchTab(tabName) {
+      // Remover classe active de todas as tabs
+      document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      // Ativar tab selecionada
+      event.target.classList.add('active');
+      document.getElementById(tabName + '-tab').classList.add('active');
+      
+      // Atualizar dados específicos da tab
+      if (tabName === 'dashboard') {
+        updateDashboard();
+      } else if (tabName === 'reports') {
+        updateReports();
+      }
+    }
+
+    function updateDashboard() {
+      // Atualizar métricas principais
+      document.getElementById('total-envios').textContent = dashboardData.totalEnvios;
+      document.getElementById('taxa-sucesso').textContent = dashboardData.taxaSucesso + '%';
+      document.getElementById('campanhas-ativas').textContent = dashboardData.campanhasAtivas;
+      document.getElementById('numeros-unicos').textContent = dashboardData.numerosUnicos.size;
+      
+      // Atualizar métricas de relatório
+      document.getElementById('envios-hoje').textContent = dashboardData.enviosHoje;
+      document.getElementById('envios-semana').textContent = dashboardData.enviosSemana;
+      document.getElementById('tempo-medio').textContent = dashboardData.tempoMedio + 's';
+      document.getElementById('maior-campanha').textContent = dashboardData.maiorCampanha;
+      
+      // Atualizar status do sistema
+      updateSystemStatus();
+      
+      // Atualizar última atualização
+      document.getElementById('last-update').textContent = 
+        'Última atualização: ' + new Date().toLocaleTimeString();
+    }
+
+    function updateSystemStatus() {
+      const status = document.getElementById('system-status');
+      const progress = document.getElementById('system-progress');
+      
+      if (dashboardData.campanhasAtivas > 0) {
+        status.innerHTML = '<span>🟡</span> Processando Campanhas';
+        status.className = 'status-indicator status-running';
+        progress.style.width = '75%';
+      } else {
+        status.innerHTML = '<span>🟢</span> Sistema Operacional';
+        status.className = 'status-indicator status-success';
+        progress.style.width = '100%';
+      }
+      
+      document.getElementById('processing-count').textContent = dashboardData.campanhasAtivas;
+      document.getElementById('queue-count').textContent = '0';
+    }
+
+    function addActivity(type, title, time = new Date()) {
+      const feed = document.getElementById('activity-feed');
+      const activity = document.createElement('div');
+      activity.className = 'activity-item';
+      
+      let iconClass = 'activity-info';
+      let icon = 'ℹ️';
+      
+      if (type === 'success') {
+        iconClass = 'activity-success';
+        icon = '✅';
+      } else if (type === 'error') {
+        iconClass = 'activity-error';
+        icon = '❌';
+      }
+      
+      activity.innerHTML = `
+        <div class="activity-icon ${iconClass}">${icon}</div>
+        <div class="activity-content">
+          <div class="activity-title">${title}</div>
+          <div class="activity-time">${time.toLocaleTimeString()}</div>
+        </div>
+      `;
+      
+      feed.insertBefore(activity, feed.firstChild);
+      
+      // Manter apenas os últimos 10 itens
+      while (feed.children.length > 10) {
+        feed.removeChild(feed.lastChild);
+      }
+    }
+
+    function updateReports() {
+      const tbody = document.getElementById('reports-tbody');
+      const startDate = document.getElementById('date-start').value;
+      const endDate = document.getElementById('date-end').value;
+      const statusFilter = document.getElementById('status-filter').value;
+      const typeFilter = document.getElementById('type-filter').value;
+      
+      // Filtrar dados
+      let filteredData = dashboardData.historico.filter(item => {
+        const itemDate = new Date(item.timestamp).toISOString().split('T')[0];
+        const dateMatch = (!startDate || itemDate >= startDate) && (!endDate || itemDate <= endDate);
+        const statusMatch = !statusFilter || item.status === statusFilter;
+        const typeMatch = !typeFilter || item.type === typeFilter;
         
-        # Validar se as variáveis de ambiente estão configuradas
-        if not all([INSTANCE, TOKEN, SECURITY_TOKEN]):
-            return jsonify({
-                'status': 'error', 
-                'mensagem': 'Configurações da API não encontradas'
-            })
+        return dateMatch && statusMatch && typeMatch;
+      });
+      
+      // Atualizar tabela
+      if (filteredData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--text-secondary); font-style: italic;">
+              Nenhum registro encontrado para os filtros selecionados
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = filteredData.map(item => `
+          <tr>
+            <td>${new Date(item.timestamp).toLocaleString()}</td>
+            <td>${item.numero}</td>
+            <td>${item.type}</td>
+            <td>
+              <span class="status-indicator status-${item.status}">
+                ${item.status === 'success' ? '✅' : item.status === 'error' ? '❌' : '⏳'}
+                ${item.status}
+              </span>
+            </td>
+            <td>${item.message.substring(0, 50)}${item.message.length > 50 ? '...' : ''}</td>
+            <td>${item.campaign || 'N/A'}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    function exportReport() {
+      const startDate = document.getElementById('date-start').value;
+      const endDate = document.getElementById('date-end').value;
+      const statusFilter = document.getElementById('status-filter').value;
+      const typeFilter = document.getElementById('type-filter').value;
+      
+      // Filtrar dados
+      let filteredData = dashboardData.historico.filter(item => {
+        const itemDate = new Date(item.timestamp).toISOString().split('T')[0];
+        const dateMatch = (!startDate || itemDate >= startDate) && (!endDate || itemDate <= endDate);
+        const statusMatch = !statusFilter || item.status === statusFilter;
+        const typeMatch = !typeFilter || item.type === typeFilter;
         
-        # Salvar campanha
-        campanha_id = salvar_campanha(sequencia, numeros)
+        return dateMatch && statusMatch && typeMatch;
+      });
+      
+      // Criar CSV
+      const headers = ['Data/Hora', 'Número', 'Tipo', 'Status', 'Mensagem', 'Campanha'];
+      const csvContent = [
+        headers.join(','),
+        ...filteredData.map(item => [
+          new Date(item.timestamp).toLocaleString(),
+          item.numero,
+          item.type,
+          item.status,
+          `"${item.message.replace(/"/g, '""')}"`,
+          item.campaign || 'N/A'
+        ].join(','))
+      ].join('\n');
+      
+      // Download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `relatorio_whatsapp_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      addActivity('success', 'Relatório exportado com sucesso');
+    }
+
+    function startRealTimeUpdates() {
+      // Atualizar dashboard a cada 30 segundos
+      setInterval(() => {
+        updateDashboard();
+      }, 30000);
+      
+      // Simular algumas atividades para demonstração
+      setTimeout(() => {
+        addActivity('info', 'Dashboard carregado com sucesso');
+      }, 1000);
+    }
+
+    // Funções existentes de mensagens (mantidas)
+    function adicionarMensagem(tipo) {
+      sequenceCounter++;
+      const container = document.getElementById('sequenceContainer');
+      const emptyState = document.getElementById('emptyState');
+      
+      if (emptyState) {
+        emptyState.style.display = 'none';
+      }
+      
+      const messageId = `msg_${sequenceCounter}`;
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'sequence-item';
+      messageDiv.id = messageId;
+      
+      if (tipo === 'texto') {
+        messageDiv.innerHTML = `
+          <div class="sequence-header">
+            <div class="sequence-number">${sequenceCounter}</div>
+            <div class="sequence-type type-${tipo}">${tipo}</div>
+            <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
+          </div>
+          <div class="sequence-content">
+            <div>
+              <textarea placeholder="Digite sua mensagem..." rows="3"></textarea>
+            </div>
+            <div>
+              <label>Intervalo (seg):</label>
+              <input type="number" class="interval-input" value="60" min="1">
+            </div>
+          </div>
+        `;
+      } else if (tipo === 'audio') {
+        messageDiv.innerHTML = `
+          <div class="sequence-header">
+            <div class="sequence-number">${sequenceCounter}</div>
+            <div class="sequence-type type-${tipo}">${tipo}</div>
+            <button class="remove-btn" onclick="removerMensagem('${messageId}')">&times;</button>
+          </div>
+          <div class="sequence-content">
+            <div class="audio-input-container">
+              <div class="audio-method-selector">
+                <button type="button" class="method-btn active" onclick="alternarMetodoAudio('${messageId}', 'url')">🔗 URL</button>
+                <button type="button" class="method-btn" onclick="alternarMetodoAudio('${messageId}', 'file')">📁 Arquivo</button>
+              </div>
+              
+              <div class="url-input" id="url-input-${messageId}">
+                <input type="url" placeholder="URL do áudio (ex: https://exemplo.com/audio.mp3)">
+              </div>
+              
+              <div class="file-input-container hidden" id="file-input-${messageId}">
+                <div class="file-input-wrapper">
+                  <input type="file" class="file-input" accept=".mp3,.ogg,.wav" onchange="handleFileSelect(this, '${messageId}')">
+                  <div class="file-input-display">
+                    <div>📁 Clique para selecionar arquivo de áudio</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">
+                      Formatos aceitos: MP3, OGG, WAV (máx. 16MB)
+                    </div>
+                  </div>
+                </div>
+                <div class="file-info hidden" id="file-info-${messageId}"></div>
+              </div>
+            </div>
+            <div>
+              <label>Intervalo (seg):</label>
+              <input type="number" class="interval-input" value="60" min="1">
+            </div>
+          </div>
+        `;
+      }
+      
+      container.appendChild(messageDiv);
+      
+      messageSequence.push({
+        id: messageId,
+        tipo: tipo,
+        ordem: sequenceCounter
+      });
+
+      addActivity('info', `Mensagem ${tipo} adicionada à sequência`);
+    }
+
+    function alternarMetodoAudio(messageId, metodo) {
+      const urlInput = document.getElementById(`url-input-${messageId}`);
+      const fileInput = document.getElementById(`file-input-${messageId}`);
+      const buttons = document.querySelectorAll(`#${messageId} .method-btn`);
+      
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      if (metodo === 'url') {
+        urlInput.classList.remove('hidden');
+        fileInput.classList.add('hidden');
+      } else {
+        urlInput.classList.add('hidden');
+        fileInput.classList.remove('hidden');
+      }
+    }
+
+    function handleFileSelect(input, messageId) {
+      const file = input.files[0];
+      const fileInfo = document.getElementById(`file-info-${messageId}`);
+      const display = input.parentElement.querySelector('.file-input-display');
+      
+      if (file) {
+        const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav'];
+        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|ogg|wav)$/i)) {
+          mostrarResposta('❌ Formato de arquivo não suportado. Use MP3, OGG ou WAV.', 'error');
+          input.value = '';
+          return;
+        }
         
-        # Log da sequência para debug
-        for msg in sequencia:
-            if msg['tipo'] == 'audio':
-                content_type = 'base64' if is_base64(msg['conteudo']) else 'url'
-                log(f"📋 Áudio {msg['ordem']}: {content_type}")
+        if (file.size > 16 * 1024 * 1024) {
+          mostrarResposta('❌ Arquivo muito grande. Máximo 16MB.', 'error');
+          input.value = '';
+          return;
+        }
         
-        # Iniciar disparo em thread separada
-        thread = threading.Thread(
-            target=executar_disparo_sequencial, 
-            args=(numeros, sequencia, campanha_id)
-        )
-        thread.daemon = True
-        thread.start()
+        display.classList.add('has-file');
+        display.innerHTML = `
+          <div>✅ ${file.name}</div>
+          <div style="font-size: 0.8rem; color: #22543d; margin-top: 5px;">
+            Arquivo selecionado com sucesso
+          </div>
+        `;
         
-        return jsonify({
-            'status': 'ok', 
-            'mensagem': 'Disparo sequencial iniciado com sucesso',
-            'campanha_id': campanha_id,
-            'detalhes': {
-                'numeros': len(numeros),
-                'mensagens_por_numero': len(sequencia),
-                'total_envios': len(numeros) * len(sequencia)
-            }
+        fileInfo.innerHTML = `
+          <span>📊 ${formatFileSize(file.size)}</span>
+          <span>🎵 ${file.type || 'audio'}</span>
+        `;
+        fileInfo.classList.remove('hidden');
+        
+        convertToBase64(file, messageId);
+        addActivity('success', `Arquivo de áudio ${file.name} carregado`);
+      }
+    }
+
+    function convertToBase64(file, messageId) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const container = document.getElementById(messageId);
+        container.setAttribute('data-audio-base64', e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function removerMensagem(messageId) {
+      const element = document.getElementById(messageId);
+      element.remove();
+      
+      messageSequence = messageSequence.filter(msg => msg.id !== messageId);
+      
+      const container = document.getElementById('sequenceContainer');
+      if (container.children.length === 0) {
+        container.innerHTML = '<div class="empty-state" id="emptyState">Nenhuma mensagem adicionada. Clique nos botões abaixo para começar.</div>';
+      }
+
+      addActivity('info', 'Mensagem removida da sequência');
+    }
+
+    function coletarSequencia() {
+      const sequencia = [];
+      const items = document.querySelectorAll('.sequence-item');
+      
+      items.forEach((item, index) => {
+        const tipo = item.querySelector('.sequence-type').textContent.trim();
+        let conteudo = '';
+        
+        if (tipo === 'texto') {
+          conteudo = item.querySelector('textarea').value;
+        } else if (tipo === 'audio') {
+          const urlInput = item.querySelector('.url-input input');
+          const fileBase64 = item.getAttribute('data-audio-base64');
+          const isFileMethod = !item.querySelector('.file-input-container').classList.contains('hidden');
+          
+          if (isFileMethod && fileBase64) {
+            conteudo = fileBase64;
+          } else {
+            conteudo = urlInput.value;
+          }
+        }
+        
+        const intervalo = parseInt(item.querySelector('.interval-input').value);
+        
+        if (conteudo.trim()) {
+          sequencia.push({
+            ordem: index + 1,
+            tipo: tipo,
+            conteudo: conteudo.trim(),
+            intervalo: intervalo
+          });
+        }
+      });
+      
+      return sequencia;
+    }
+
+    function enviarSequencia() {
+      const sequencia = coletarSequencia();
+      const numeros = document.getElementById('numeros').value
+        .split('\n')
+        .filter(n => n.trim() !== '');
+      
+      if (sequencia.length === 0) {
+        mostrarResposta('❌ Adicione pelo menos uma mensagem à sequência.', 'error');
+        return;
+      }
+      
+      if (numeros.length === 0) {
+        mostrarResposta('❌ Adicione pelo menos um número de telefone.', 'error');
+        return;
+      }
+      
+      // Atualizar métricas
+      dashboardData.campanhasAtivas++;
+      dashboardData.totalEnvios += numeros.length * sequencia.length;
+      numeros.forEach(num => dashboardData.numerosUnicos.add(num.trim()));
+      dashboardData.maiorCampanha = Math.max(dashboardData.maiorCampanha, numeros.length * sequencia.length);
+      
+      // Simular histórico de envios
+      const campaignId = 'CAMP_' + Date.now();
+      numeros.forEach(numero => {
+        sequencia.forEach(msg => {
+          dashboardData.historico.push({
+            timestamp: new Date().toISOString(),
+            numero: numero.trim(),
+            type: msg.tipo,
+            status: Math.random() > 0.1 ? 'success' : 'error', // 90% sucesso
+            message: msg.conteudo.substring(0, 100),
+            campaign: campaignId
+          });
+        });
+      });
+      
+      // Calcular taxa de sucesso
+      const sucessos = dashboardData.historico.filter(h => h.status === 'success').length;
+      dashboardData.taxaSucesso = Math.round((sucessos / dashboardData.historico.length) * 100);
+      
+      // Calcular envios hoje
+      const hoje = new Date().toISOString().split('T')[0];
+      dashboardData.enviosHoje = dashboardData.historico.filter(h => 
+        h.timestamp.split('T')[0] === hoje
+      ).length;
+      
+      // Calcular envios da semana
+      const semanaAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      dashboardData.enviosSemana = dashboardData.historico.filter(h => 
+        h.timestamp >= semanaAtras
+      ).length;
+      
+      saveData();
+      updateDashboard();
+      
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('resposta').style.display = 'none';
+      
+      addActivity('info', `Campanha iniciada: ${numeros.length} números, ${sequencia.length} mensagens`);
+      
+      fetch('/enviar-sequencia', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          sequencia: sequencia,
+          numeros: numeros
         })
+      })
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('loading').style.display = 'none';
+        dashboardData.campanhasAtivas = Math.max(0, dashboardData.campanhasAtivas - 1);
         
-    except Exception as e:
-        log(f"❌ Erro no endpoint /enviar-sequencia: {str(e)}")
-        return jsonify({
-            'status': 'error', 
-            'mensagem': f'Erro interno: {str(e)}'
-        })
+        if (data.status === 'ok') {
+          mostrarResposta(`✅ Disparo sequencial iniciado com sucesso!\n\n📊 Estatísticas:\n• ${numeros.length} números\n• ${sequencia.length} mensagens por número\n• Total de ${numeros.length * sequencia.length} envios`, 'success');
+          addActivity('success', `Campanha finalizada com sucesso`);
+        } else {
+          mostrarResposta(`❌ Erro: ${data.mensagem}`, 'error');
+          addActivity('error', `Erro na campanha: ${data.mensagem}`);
+        }
+        
+        updateDashboard();
+        saveData();
+      })
+      .catch(error => {
+        document.getElementById('loading').style.display = 'none';
+        dashboardData.campanhasAtivas = Math.max(0, dashboardData.campanhasAtivas - 1);
+        mostrarResposta(`❌ Erro de conexão: ${error.message}`, 'error');
+        addActivity('error', `Erro de conexão: ${error.message}`);
+        updateDashboard();
+        saveData();
+      });
+    }
 
-# Manter o endpoint antigo para compatibilidade
-@app.route('/enviar', methods=['POST'])
-def enviar():
-    try:
-        data = request.json
-        tipo = data['tipo']
-        textos = data['textos']
-        audios = data['audios']
-        numeros = data['numeros']
-        intervalo = int(data['intervalo'])
-        
-        def processar_envio_legado():
-            for numero in numeros:
-                if tipo in ['texto', 'ambos']:
-                    for texto in textos:
-                        enviar_mensagem_texto(numero, texto)
-                        time.sleep(intervalo)
-                
-                if tipo in ['audio', 'ambos']:
-                    for audio in audios:
-                        enviar_mensagem_audio(numero, audio)
-                        time.sleep(intervalo)
-        
-        thread = threading.Thread(target=processar_envio_legado)
-        thread.daemon = True
-        thread.start()
-        
-        return jsonify({'status': 'ok', 'mensagem': 'Mensagens enviadas com sucesso.'})
-        
-    except Exception as e:
-        return jsonify({'status': 'error', 'mensagem': str(e)})
-
-if __name__ == '__main__':
-    # Inicializar banco de dados
-    init_db()
-    
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    function mostrarResposta(mensagem, tipo) {
+      const resposta = document.getElementById('resposta');
+      resposta.textContent = mensagem;
+      resposta.className = `response ${tipo}`;
+      resposta.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
