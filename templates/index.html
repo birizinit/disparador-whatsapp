@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Disparador WhatsApp</title>
+  <style>
+    body { font-family: Arial; max-width: 700px; margin: auto; padding: 20px; }
+    textarea, input, select { width: 100%; margin: 10px 0; padding: 10px; }
+    button { padding: 10px 20px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>Disparador de WhatsApp</h2>
+
+  <label>Tipo de Disparo:</label>
+  <select id="tipo">
+    <option value="texto">Somente Texto</option>
+    <option value="audio">Somente Áudio</option>
+    <option value="ambos">Texto e Áudio</option>
+  </select>
+
+  <label>Mensagens de Texto (uma por linha):</label>
+  <textarea id="textos" rows="5" placeholder="Insira mensagens de texto..."></textarea>
+
+  <label>URLs dos Áudios (uma por linha):</label>
+  <textarea id="audios" rows="5" placeholder="Insira links dos áudios..."></textarea>
+
+  <label>Intervalo entre mensagens (em segundos):</label>
+  <input type="number" id="intervalo" value="60" />
+
+  <label>Números de telefone (um por linha):</label>
+  <textarea id="numeros" rows="6" placeholder="Ex: 5511999999999"></textarea>
+
+  <button onclick="enviar()">Enviar Mensagens</button>
+
+  <pre id="resposta"></pre>
+
+  <script>
+    function enviar() {
+      const tipo = document.getElementById('tipo').value;
+      const textos = document.getElementById('textos').value.split('\n').filter(t => t.trim() !== '');
+      const audios = document.getElementById('audios').value.split('\n').filter(a => a.trim() !== '');
+      const intervalo = document.getElementById('intervalo').value;
+      const numeros = document.getElementById('numeros').value.split('\n').filter(n => n.trim() !== '');
+
+      fetch('/enviar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ tipo, textos, audios, intervalo, numeros })
+      })
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('resposta').textContent = "✅ Disparo iniciado com sucesso.";
+      });
+    }
+  </script>
+</body>
+</html>
